@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -28,31 +28,31 @@ namespace OpenRA.Mods.Common.Orders
 				yield break;
 
 			var target = FriendlyGuardableUnits(world, mi).FirstOrDefault();
-			if (target == null || Subjects.All(s => s.IsDead))
+			if (target == null)
 				yield break;
 
 			world.CancelInputMode();
 
 			var queued = mi.Modifiers.HasModifier(Modifiers.Shift);
-			foreach (var subject in Subjects)
-				if (subject != target)
-					yield return new Order(OrderName, subject, Target.FromActor(target), queued);
+			yield return new Order(OrderName, null, Target.FromActor(target), queued, null, subjects.Where(s => s != target).ToArray());
 		}
 
-		public override void Tick(World world)
+		public override void SelectionChanged(World world, IEnumerable<Actor> selected)
 		{
-			if (Subjects.All(s => s.IsDead || !s.Info.HasTraitInfo<GuardInfo>()))
+			// Guarding doesn't work without AutoTarget, so require at least one unit in the selection to have it
+			subjects = selected.Where(s => s.Info.HasTraitInfo<GuardInfo>());
+			if (!subjects.Any(s => s.Info.HasTraitInfo<AutoTargetInfo>()))
 				world.CancelInputMode();
 		}
 
 		public override string GetCursor(World world, CPos cell, int2 worldPixel, MouseInput mi)
 		{
-			if (!Subjects.Any())
+			if (!subjects.Any())
 				return null;
 
-			var multiple = Subjects.Count() > 1;
+			var multiple = subjects.Count() > 1;
 			var canGuard = FriendlyGuardableUnits(world, mi)
-				.Any(a => multiple || a != Subjects.First());
+				.Any(a => multiple || a != subjects.First());
 
 			return canGuard ? Cursor : "move-blocked";
 		}

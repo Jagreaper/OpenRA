@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -100,6 +100,8 @@ namespace OpenRA.Platforms.Default
 			OpenGL.glVertexAttribPointer(Shader.TexCoordAttributeIndex, 4, OpenGL.GL_FLOAT, false, VertexSize, new IntPtr(12));
 			OpenGL.CheckGLError();
 			OpenGL.glVertexAttribPointer(Shader.TexMetadataAttributeIndex, 2, OpenGL.GL_FLOAT, false, VertexSize, new IntPtr(28));
+			OpenGL.CheckGLError();
+			OpenGL.glVertexAttribPointer(Shader.TintAttributeIndex, 3, OpenGL.GL_FLOAT, false, VertexSize, new IntPtr(36));
 			OpenGL.CheckGLError();
 		}
 

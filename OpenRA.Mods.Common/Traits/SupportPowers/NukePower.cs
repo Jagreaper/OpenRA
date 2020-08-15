@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -16,7 +16,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	class NukePowerInfo : SupportPowerInfo, IRulesetLoaded, Requires<BodyOrientationInfo>
+	class NukePowerInfo : SupportPowerInfo
 	{
 		[WeaponReference]
 		[FieldLoader.Require]
@@ -45,7 +45,7 @@ namespace OpenRA.Mods.Common.Traits
 			"'False' will make the missile continue until it hits the ground and disappears (without triggering another explosion).")]
 		public readonly bool RemoveMissileOnDetonation = true;
 
-		[PaletteReference("IsPlayerPalette")]
+		[PaletteReference(nameof(IsPlayerPalette))]
 		[Desc("Palette to use for the missile weapon image.")]
 		public readonly string MissilePalette = "effect";
 
@@ -65,7 +65,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Delay in ticks until trail animation is spawned.")]
 		public readonly int TrailDelay = 1;
 
-		[PaletteReference("TrailUsePlayerPalette")]
+		[PaletteReference(nameof(TrailUsePlayerPalette))]
 		[Desc("Palette used to render the trail sequence.")]
 		public readonly string TrailPalette = "effect";
 
@@ -99,9 +99,6 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Amount of time after detonation to remove the camera.")]
 		public readonly int CameraRemoveDelay = 25;
 
-		[Desc("Corresponds to `Type` from `FlashPaletteEffect` on the world actor.")]
-		public readonly string FlashType = null;
-
 		public WeaponInfo WeaponInfo { get; private set; }
 
 		public override object Create(ActorInitializer init) { return new NukePower(init.Self, this); }
@@ -124,13 +121,18 @@ namespace OpenRA.Mods.Common.Traits
 	class NukePower : SupportPower
 	{
 		readonly NukePowerInfo info;
-		readonly BodyOrientation body;
+		BodyOrientation body;
 
 		public NukePower(Actor self, NukePowerInfo info)
 			: base(self, info)
 		{
-			body = self.Trait<BodyOrientation>();
 			this.info = info;
+		}
+
+		protected override void Created(Actor self)
+		{
+			body = self.TraitOrDefault<BodyOrientation>();
+			base.Created(self);
 		}
 
 		public override void Activate(Actor self, Order order, SupportPowerManager manager)
@@ -143,15 +145,14 @@ namespace OpenRA.Mods.Common.Traits
 
 		public void Activate(Actor self, WPos targetPosition)
 		{
-			foreach (var launchpad in self.TraitsImplementing<INotifyNuke>())
-				launchpad.Launching(self);
-
 			var palette = info.IsPlayerPalette ? info.MissilePalette + self.Owner.InternalName : info.MissilePalette;
+			var skipAscent = info.SkipAscent || body == null;
+			var launchPos = skipAscent ? WPos.Zero : self.CenterPosition + body.LocalToWorld(info.SpawnOffset);
+
 			var missile = new NukeLaunch(self.Owner, info.MissileWeapon, info.WeaponInfo, palette, info.MissileUp, info.MissileDown,
-				self.CenterPosition + body.LocalToWorld(info.SpawnOffset),
+				launchPos,
 				targetPosition, info.DetonationAltitude, info.RemoveMissileOnDetonation,
-				info.FlightVelocity, info.MissileDelay, info.FlightDelay, info.SkipAscent,
-				info.FlashType,
+				info.FlightVelocity, info.MissileDelay, info.FlightDelay, skipAscent,
 				info.TrailImage, info.TrailSequences, info.TrailPalette, info.TrailUsePlayerPalette, info.TrailDelay, info.TrailInterval);
 
 			self.World.AddFrameEndTask(w => w.Add(missile));

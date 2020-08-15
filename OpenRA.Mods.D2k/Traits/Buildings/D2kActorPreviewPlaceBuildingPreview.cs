@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -13,10 +13,11 @@ using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Orders;
+using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Primitives;
 
-namespace OpenRA.Mods.Common.Traits
+namespace OpenRA.Mods.D2k.Traits
 {
 	[Desc("Creates a building placement preview based on the map editor actor preview.")]
 	public class D2kActorPreviewPlaceBuildingPreviewInfo : ActorPreviewPlaceBuildingPreviewInfo
@@ -58,7 +59,7 @@ namespace OpenRA.Mods.Common.Traits
 			buildBlocked = sequences.GetSequence("overlay", "build-invalid").GetSprite(0);
 
 			var buildingInfo = ai.TraitInfo<BuildingInfo>();
-			unpathableCells = new CachedTransform<CPos, List<CPos>>(topLeft => buildingInfo.UnpathableTiles(topLeft).ToList());
+			unpathableCells = new CachedTransform<CPos, List<CPos>>(topLeft => buildingInfo.OccupiedTiles(topLeft).ToList());
 		}
 
 		protected override IEnumerable<IRenderable> RenderFootprint(WorldRenderer wr, CPos topLeft, Dictionary<CPos, PlaceBuildingCellType> footprint,
@@ -81,7 +82,7 @@ namespace OpenRA.Mods.Common.Traits
 				var pal = HasFlag(c.Value, PlaceBuildingCellType.LineBuild) ? linePalette : cellPalette;
 				var pos = wr.World.Map.CenterOfCell(c.Key);
 				var offset = new WVec(0, 0, topLeftPos.Z - pos.Z);
-				yield return new SpriteRenderable(tile, pos, offset, -511, pal, 1f, true);
+				yield return new SpriteRenderable(tile, pos, offset, -511, pal, 1f, true, true);
 			}
 		}
 	}

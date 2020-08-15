@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -106,13 +106,13 @@ namespace OpenRA.Mods.Common.Graphics
 
 			public Rectangle ScreenBounds(WorldRenderer wr)
 			{
-				return Screen3DBounds(wr).First;
+				return Screen3DBounds(wr).Bounds;
 			}
 
 			static readonly uint[] CornerXIndex = { 0, 0, 0, 0, 3, 3, 3, 3 };
 			static readonly uint[] CornerYIndex = { 1, 1, 4, 4, 1, 1, 4, 4 };
 			static readonly uint[] CornerZIndex = { 2, 5, 2, 5, 2, 5, 2, 5 };
-			Pair<Rectangle, float2> Screen3DBounds(WorldRenderer wr)
+			(Rectangle Bounds, float2 Z) Screen3DBounds(WorldRenderer wr)
 			{
 				var pxOrigin = model.screenPos;
 				var draw = model.models.Where(v => v.IsVisible);
@@ -129,8 +129,8 @@ namespace OpenRA.Mods.Common.Graphics
 				foreach (var v in draw)
 				{
 					var bounds = v.Model.Bounds(v.FrameFunc());
-					var worldTransform = v.RotationFunc().Reverse().Aggregate(scaleTransform,
-						(x, y) => OpenRA.Graphics.Util.MatrixMultiply(x, OpenRA.Graphics.Util.MakeFloatMatrix(y.AsMatrix())));
+					var rotation = OpenRA.Graphics.Util.MakeFloatMatrix(v.RotationFunc().AsMatrix());
+					var worldTransform = OpenRA.Graphics.Util.MatrixMultiply(scaleTransform, rotation);
 
 					var pxPos = pxOrigin + wr.ScreenVectorComponents(v.OffsetFunc());
 					var screenTransform = OpenRA.Graphics.Util.MatrixMultiply(cameraTransform, worldTransform);
@@ -148,7 +148,7 @@ namespace OpenRA.Mods.Common.Graphics
 					}
 				}
 
-				return Pair.New(Rectangle.FromLTRB((int)minX, (int)minY, (int)maxX, (int)maxY), new float2(minZ, maxZ));
+				return (Rectangle.FromLTRB((int)minX, (int)minY, (int)maxX, (int)maxY), new float2(minZ, maxZ));
 			}
 		}
 	}

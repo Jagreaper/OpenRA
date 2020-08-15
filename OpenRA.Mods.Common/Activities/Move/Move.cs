@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -30,6 +30,14 @@ namespace OpenRA.Mods.Common.Activities
 		readonly Actor ignoreActor;
 		readonly Color? targetLineColor;
 
+		static readonly BlockedByActor[] PathSearchOrder =
+		{
+			BlockedByActor.All,
+			BlockedByActor.Immovable,
+			BlockedByActor.Stationary,
+			BlockedByActor.None
+		};
+
 		List<CPos> path;
 		CPos? destination;
 
@@ -44,7 +52,8 @@ namespace OpenRA.Mods.Common.Activities
 		// Ignores lane bias and nearby units
 		public Move(Actor self, CPos destination, Color? targetLineColor = null)
 		{
-			mobile = self.Trait<Mobile>();
+			// PERF: Because we can be sure that OccupiesSpace is Mobile here, we can save some performance by avoiding querying for the trait.
+			mobile = (Mobile)self.OccupiesSpace;
 
 			getPath = check =>
 			{
@@ -64,7 +73,8 @@ namespace OpenRA.Mods.Common.Activities
 		public Move(Actor self, CPos destination, WDist nearEnough, Actor ignoreActor = null, bool evaluateNearestMovableCell = false,
 			Color? targetLineColor = null)
 		{
-			mobile = self.Trait<Mobile>();
+			// PERF: Because we can be sure that OccupiesSpace is Mobile here, we can save some performance by avoiding querying for the trait.
+			mobile = (Mobile)self.OccupiesSpace;
 
 			getPath = check =>
 			{
@@ -85,7 +95,8 @@ namespace OpenRA.Mods.Common.Activities
 
 		public Move(Actor self, CPos destination, SubCell subCell, WDist nearEnough, Color? targetLineColor = null)
 		{
-			mobile = self.Trait<Mobile>();
+			// PERF: Because we can be sure that OccupiesSpace is Mobile here, we can save some performance by avoiding querying for the trait.
+			mobile = (Mobile)self.OccupiesSpace;
 
 			getPath = check => mobile.Pathfinder.FindUnitPathToRange(
 				mobile.FromCell, subCell, self.World.Map.CenterOfSubCell(destination, subCell), nearEnough, self, check);
@@ -97,7 +108,8 @@ namespace OpenRA.Mods.Common.Activities
 
 		public Move(Actor self, Target target, WDist range, Color? targetLineColor = null)
 		{
-			mobile = self.Trait<Mobile>();
+			// PERF: Because we can be sure that OccupiesSpace is Mobile here, we can save some performance by avoiding querying for the trait.
+			mobile = (Mobile)self.OccupiesSpace;
 
 			getPath = check =>
 			{
@@ -115,7 +127,8 @@ namespace OpenRA.Mods.Common.Activities
 
 		public Move(Actor self, Func<BlockedByActor, List<CPos>> getPath, Color? targetLineColor = null)
 		{
-			mobile = self.Trait<Mobile>();
+			// PERF: Because we can be sure that OccupiesSpace is Mobile here, we can save some performance by avoiding querying for the trait.
+			mobile = (Mobile)self.OccupiesSpace;
 
 			this.getPath = getPath;
 
@@ -146,22 +159,29 @@ namespace OpenRA.Mods.Common.Activities
 			if (evaluateNearestMovableCell && destination.HasValue)
 			{
 				var movableDestination = mobile.NearestMoveableCell(destination.Value);
-				destination = mobile.CanEnterCell(movableDestination) ? movableDestination : (CPos?)null;
+				destination = mobile.CanEnterCell(movableDestination, check: BlockedByActor.Immovable) ? movableDestination : (CPos?)null;
 			}
 
-			path = EvalPath(BlockedByActor.Stationary);
-			if (path.Count == 0)
-				path = EvalPath(BlockedByActor.None);
+			// TODO: Change this to BlockedByActor.Stationary after improving the local avoidance behaviour
+			foreach (var check in PathSearchOrder)
+			{
+				path = EvalPath(check);
+				if (path.Count > 0)
+					return;
+			}
 		}
 
 		public override bool Tick(Actor self)
 		{
 			mobile.TurnToMove = false;
 
-			// If the actor is inside a tunnel then we must let them move
-			// all the way through before moving to the next activity
-			if (IsCanceling && self.Location.Layer != CustomMovementLayerType.Tunnel)
+			if (IsCanceling && mobile.CanStayInCell(mobile.ToCell))
+			{
+				if (path != null)
+					path.Clear();
+
 				return true;
+			}
 
 			if (mobile.IsTraitDisabled || mobile.IsTraitPaused)
 				return false;
@@ -181,16 +201,16 @@ namespace OpenRA.Mods.Common.Activities
 			if (nextCell == null)
 				return false;
 
-			var firstFacing = self.World.Map.FacingBetween(mobile.FromCell, nextCell.Value.First, mobile.Facing);
+			var firstFacing = self.World.Map.FacingBetween(mobile.FromCell, nextCell.Value.Cell, mobile.Facing);
 			if (firstFacing != mobile.Facing)
 			{
-				path.Add(nextCell.Value.First);
+				path.Add(nextCell.Value.Cell);
 				QueueChild(new Turn(self, firstFacing));
 				mobile.TurnToMove = true;
 				return false;
 			}
 
-			mobile.SetLocation(mobile.FromCell, mobile.FromSubCell, nextCell.Value.First, nextCell.Value.Second);
+			mobile.SetLocation(mobile.FromCell, mobile.FromSubCell, nextCell.Value.Cell, nextCell.Value.SubCell);
 
 			var map = self.World.Map;
 			var from = (mobile.FromCell.Layer == 0 ? map.CenterOfCell(mobile.FromCell) :
@@ -204,7 +224,7 @@ namespace OpenRA.Mods.Common.Activities
 			return false;
 		}
 
-		Pair<CPos, SubCell>? PopPath(Actor self)
+		(CPos Cell, SubCell SubCell)? PopPath(Actor self)
 		{
 			if (path.Count == 0)
 				return null;
@@ -225,10 +245,31 @@ namespace OpenRA.Mods.Common.Activities
 			{
 				// Are we close enough?
 				var cellRange = nearEnough.Length / 1024;
-				if (!containsTemporaryBlocker && (mobile.ToCell - destination.Value).LengthSquared <= cellRange * cellRange)
+				if (!containsTemporaryBlocker && (mobile.ToCell - destination.Value).LengthSquared <= cellRange * cellRange && mobile.CanStayInCell(mobile.ToCell))
 				{
-					path.Clear();
-					return null;
+					// Apply some simple checks to avoid giving up in cases where we can be confident that
+					// nudging/waiting/repathing should produce better results.
+
+					// Avoid fighting over the destination cell
+					if (path.Count < 2)
+					{
+						path.Clear();
+						return null;
+					}
+
+					// We can reasonably assume that the blocker is friendly and has a similar locomotor type.
+					// If there is a free cell next to the blocker that is a similar or closer distance to the
+					// destination then we can probably nudge or path around it.
+					var blockerDistSq = (nextCell - destination.Value).LengthSquared;
+					var nudgeOrRepath = CVec.Directions
+						.Select(d => nextCell + d)
+						.Any(c => c != self.Location && (c - destination.Value).LengthSquared <= blockerDistSq && mobile.CanEnterCell(c, ignoreActor));
+
+					if (!nudgeOrRepath)
+					{
+						path.Clear();
+						return null;
+					}
 				}
 
 				// There is no point in waiting for the other actor to move if it is incapable of moving.
@@ -269,7 +310,7 @@ namespace OpenRA.Mods.Common.Activities
 					var newCell = path[path.Count - 1];
 					path.RemoveAt(path.Count - 1);
 
-					return Pair.New(newCell, mobile.GetAvailableSubCell(nextCell, SubCell.Any, ignoreActor));
+					return (newCell, mobile.GetAvailableSubCell(nextCell, mobile.FromSubCell, ignoreActor));
 				}
 				else if (mobile.IsBlocking)
 				{
@@ -280,7 +321,7 @@ namespace OpenRA.Mods.Common.Activities
 						if ((nextCell - newCell).Value.LengthSquared > 2)
 							path.Add(mobile.ToCell);
 
-						return Pair.New(newCell.Value, mobile.GetAvailableSubCell(newCell.Value, SubCell.Any, ignoreActor));
+						return (newCell.Value, mobile.GetAvailableSubCell(newCell.Value, mobile.FromSubCell, ignoreActor));
 					}
 				}
 
@@ -290,7 +331,7 @@ namespace OpenRA.Mods.Common.Activities
 			hasWaited = false;
 			path.RemoveAt(path.Count - 1);
 
-			return Pair.New(nextCell, mobile.GetAvailableSubCell(nextCell, SubCell.Any, ignoreActor));
+			return (nextCell, mobile.GetAvailableSubCell(nextCell, mobile.FromSubCell, ignoreActor));
 		}
 
 		protected override void OnLastRun(Actor self)
@@ -312,7 +353,14 @@ namespace OpenRA.Mods.Common.Activities
 
 		public override void Cancel(Actor self, bool keepQueue = false)
 		{
-			if (path != null)
+			Cancel(self, keepQueue, false);
+		}
+
+		public void Cancel(Actor self, bool keepQueue, bool forceClearPath)
+		{
+			// We need to clear the path here in order to prevent MovePart queueing new instances of itself
+			// when the unit is making a turn.
+			if (path != null && (forceClearPath || mobile.CanStayInCell(mobile.ToCell)))
 				path.Clear();
 
 			base.Cancel(self, keepQueue);
@@ -337,7 +385,7 @@ namespace OpenRA.Mods.Common.Activities
 		{
 			protected readonly Move Move;
 			protected readonly WPos From, To;
-			protected readonly int FromFacing, ToFacing;
+			protected readonly WAngle FromFacing, ToFacing;
 			protected readonly bool EnableArc;
 			protected readonly WPos ArcCenter;
 			protected readonly int ArcFromLength;
@@ -348,7 +396,7 @@ namespace OpenRA.Mods.Common.Activities
 			protected readonly int MoveFractionTotal;
 			protected int moveFraction;
 
-			public MovePart(Move move, WPos from, WPos to, int fromFacing, int toFacing, int startingFraction)
+			public MovePart(Move move, WPos from, WPos to, WAngle fromFacing, WAngle toFacing, int startingFraction)
 			{
 				Move = move;
 				From = from;
@@ -360,12 +408,12 @@ namespace OpenRA.Mods.Common.Activities
 				IsInterruptible = false; // See comments in Move.Cancel()
 
 				// Calculate an elliptical arc that joins from and to
-				var delta = Util.NormalizeFacing(fromFacing - toFacing);
-				if (delta != 0 && delta != 128)
+				var delta = (fromFacing - toFacing).Angle;
+				if (delta != 0 && delta != 512)
 				{
 					// The center of rotation is where the normal vectors cross
-					var u = new WVec(1024, 0, 0).Rotate(WRot.FromFacing(fromFacing));
-					var v = new WVec(1024, 0, 0).Rotate(WRot.FromFacing(toFacing));
+					var u = new WVec(1024, 0, 0).Rotate(WRot.FromYaw(fromFacing));
+					var v = new WVec(1024, 0, 0).Rotate(WRot.FromYaw(toFacing));
 					var w = from - to;
 					var s = (v.Y * w.X - v.X * w.Y) * 1024 / (v.X * u.Y - v.Y * u.X);
 					var x = from.X + s * u.X / 1024;
@@ -421,15 +469,18 @@ namespace OpenRA.Mods.Common.Activities
 					else
 						pos = WPos.Lerp(From, To, moveFraction, MoveFractionTotal);
 
+					if (self.Location.Layer == 0)
+						pos -= new WVec(WDist.Zero, WDist.Zero, self.World.Map.DistanceAboveTerrain(pos));
+
 					mobile.SetVisualPosition(self, pos);
 				}
 				else
 					mobile.SetVisualPosition(self, To);
 
 				if (moveFraction >= MoveFractionTotal)
-					mobile.Facing = ToFacing & 0xFF;
+					mobile.Facing = ToFacing;
 				else
-					mobile.Facing = int2.Lerp(FromFacing, ToFacing, moveFraction, MoveFractionTotal) & 0xFF;
+					mobile.Facing = WAngle.Lerp(FromFacing, ToFacing, moveFraction, MoveFractionTotal);
 			}
 
 			protected abstract MovePart OnComplete(Actor self, Mobile mobile, Move parent);
@@ -442,16 +493,20 @@ namespace OpenRA.Mods.Common.Activities
 
 		class MoveFirstHalf : MovePart
 		{
-			public MoveFirstHalf(Move move, WPos from, WPos to, int fromFacing, int toFacing, int startingFraction)
+			public MoveFirstHalf(Move move, WPos from, WPos to, WAngle fromFacing, WAngle toFacing, int startingFraction)
 				: base(move, from, to, fromFacing, toFacing, startingFraction) { }
 
 			static bool IsTurn(Mobile mobile, CPos nextCell, Map map)
 			{
+				// Some actors with a limited number of sprite facings should never move along curved trajectories.
+				if (mobile.Info.AlwaysTurnInPlace)
+					return false;
+
 				// Tight U-turns should be done in place instead of making silly looking loops.
 				var nextFacing = map.FacingBetween(nextCell, mobile.ToCell, mobile.Facing);
 				var currentFacing = map.FacingBetween(mobile.ToCell, mobile.FromCell, mobile.Facing);
-				var delta = Util.NormalizeFacing(nextFacing - currentFacing);
-				return delta != 0 && (delta < 96 || delta > 160);
+				var delta = (nextFacing - currentFacing).Angle;
+				return delta != 0 && (delta < 384 || delta > 640);
 			}
 
 			protected override MovePart OnComplete(Actor self, Mobile mobile, Move parent)
@@ -463,23 +518,23 @@ namespace OpenRA.Mods.Common.Activities
 				var nextCell = parent.PopPath(self);
 				if (nextCell != null)
 				{
-					if (!mobile.IsTraitPaused && !mobile.IsTraitDisabled && IsTurn(mobile, nextCell.Value.First, map))
+					if (!mobile.IsTraitPaused && !mobile.IsTraitDisabled && IsTurn(mobile, nextCell.Value.Cell, map))
 					{
-						var nextSubcellOffset = map.Grid.OffsetOfSubCell(nextCell.Value.Second);
+						var nextSubcellOffset = map.Grid.OffsetOfSubCell(nextCell.Value.SubCell);
 						var ret = new MoveFirstHalf(
 							Move,
 							Util.BetweenCells(self.World, mobile.FromCell, mobile.ToCell) + (fromSubcellOffset + toSubcellOffset) / 2,
-							Util.BetweenCells(self.World, mobile.ToCell, nextCell.Value.First) + (toSubcellOffset + nextSubcellOffset) / 2,
+							Util.BetweenCells(self.World, mobile.ToCell, nextCell.Value.Cell) + (toSubcellOffset + nextSubcellOffset) / 2,
 							mobile.Facing,
-							Util.GetNearestFacing(mobile.Facing, map.FacingBetween(mobile.ToCell, nextCell.Value.First, mobile.Facing)),
+							map.FacingBetween(mobile.ToCell, nextCell.Value.Cell, mobile.Facing),
 							moveFraction - MoveFractionTotal);
 
 						mobile.FinishedMoving(self);
-						mobile.SetLocation(mobile.ToCell, mobile.ToSubCell, nextCell.Value.First, nextCell.Value.Second);
+						mobile.SetLocation(mobile.ToCell, mobile.ToSubCell, nextCell.Value.Cell, nextCell.Value.SubCell);
 						return ret;
 					}
 
-					parent.path.Add(nextCell.Value.First);
+					parent.path.Add(nextCell.Value.Cell);
 				}
 
 				var toPos = mobile.ToCell.Layer == 0 ? map.CenterOfCell(mobile.ToCell) :
@@ -501,7 +556,7 @@ namespace OpenRA.Mods.Common.Activities
 
 		class MoveSecondHalf : MovePart
 		{
-			public MoveSecondHalf(Move move, WPos from, WPos to, int fromFacing, int toFacing, int startingFraction)
+			public MoveSecondHalf(Move move, WPos from, WPos to, WAngle fromFacing, WAngle toFacing, int startingFraction)
 				: base(move, from, to, fromFacing, toFacing, startingFraction) { }
 
 			protected override MovePart OnComplete(Actor self, Mobile mobile, Move parent)

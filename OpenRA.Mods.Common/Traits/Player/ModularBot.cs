@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,7 +10,6 @@
 #endregion
 
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Support;
@@ -19,7 +18,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Bot that uses BotModules.")]
-	public sealed class ModularBotInfo : IBotInfo, ITraitInfo
+	public sealed class ModularBotInfo : TraitInfo, IBotInfo
 	{
 		[FieldLoader.Require]
 		[Desc("Internal id for this bot.")]
@@ -35,7 +34,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		string IBotInfo.Name { get { return Name; } }
 
-		public object Create(ActorInitializer init) { return new ModularBot(this, init); }
+		public override object Create(ActorInitializer init) { return new ModularBot(this, init); }
 	}
 
 	public sealed class ModularBot : ITick, IBot, INotifyDamage

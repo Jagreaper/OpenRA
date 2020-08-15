@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -19,7 +19,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Allows the map to have working spawnpoints. Also controls the 'Separate Team Spawns' checkbox in the lobby options.")]
-	public class MPStartLocationsInfo : ITraitInfo, ILobbyOptions
+	public class MPStartLocationsInfo : TraitInfo, ILobbyOptions
 	{
 		public readonly WDist InitialExploreRange = WDist.FromCells(5);
 
@@ -43,7 +43,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Display order for the spawn positions checkbox in the lobby.")]
 		public readonly int SeparateTeamSpawnsCheckboxDisplayOrder = 0;
 
-		public virtual object Create(ActorInitializer init) { return new MPStartLocations(this); }
+		public override object Create(ActorInitializer init) { return new MPStartLocations(this); }
 
 		IEnumerable<LobbyOption> ILobbyOptions.LobbyOptions(Ruleset rules)
 		{
@@ -133,8 +133,8 @@ namespace OpenRA.Mods.Common.Traits
 			var n = taken.Count == 0 || !separateTeamSpawns
 				? world.SharedRandom.Next(available.Count)
 				: available // pick the most distant spawnpoint from everyone else
-					.Select((k, i) => Pair.New(k, i))
-					.MaxBy(a => taken.Sum(t => (t - a.First).LengthSquared)).Second;
+					.Select((k, i) => (Cell: k, Index: i))
+					.MaxBy(a => taken.Sum(t => (t - a.Cell).LengthSquared)).Index;
 
 			var sp = available[n];
 			available.RemoveAt(n);

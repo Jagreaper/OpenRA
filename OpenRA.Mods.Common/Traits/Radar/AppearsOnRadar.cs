@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -39,7 +39,7 @@ namespace OpenRA.Mods.Common.Traits.Radar
 			modifier = self.TraitsImplementing<IRadarColorModifier>().FirstOrDefault();
 		}
 
-		public void PopulateRadarSignatureCells(Actor self, List<Pair<CPos, Color>> destinationBuffer)
+		public void PopulateRadarSignatureCells(Actor self, List<(CPos Cell, Color Color)> destinationBuffer)
 		{
 			var viewer = self.World.RenderPlayer ?? self.World.LocalPlayer;
 			if (IsTraitDisabled || (viewer != null && !Info.ValidStances.HasStance(self.Owner.Stances[viewer])))
@@ -51,12 +51,12 @@ namespace OpenRA.Mods.Common.Traits.Radar
 
 			if (Info.UseLocation)
 			{
-				destinationBuffer.Add(Pair.New(self.Location, color));
+				destinationBuffer.Add((self.Location, color));
 				return;
 			}
 
 			foreach (var cell in self.OccupiesSpace.OccupiedCells())
-				destinationBuffer.Add(Pair.New(cell.First, color));
+				destinationBuffer.Add((cell.Cell, color));
 		}
 	}
 }

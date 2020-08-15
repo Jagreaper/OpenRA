@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -20,7 +20,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	class BridgeInfo : ITraitInfo, IRulesetLoaded, Requires<HealthInfo>, Requires<BuildingInfo>
+	class BridgeInfo : TraitInfo, IRulesetLoaded, Requires<HealthInfo>, Requires<BuildingInfo>
 	{
 		public readonly bool Long = false;
 
@@ -49,7 +49,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Types of damage that this bridge causes to units over/in path of it while being destroyed/repaired. Leave empty for no damage types.")]
 		public readonly BitSet<DamageType> DamageTypes = default(BitSet<DamageType>);
 
-		public object Create(ActorInitializer init) { return new Bridge(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new Bridge(init.Self, this); }
 
 		public void RulesetLoaded(Ruleset rules, ActorInfo ai)
 		{
@@ -64,27 +64,27 @@ namespace OpenRA.Mods.Common.Traits
 			DemolishWeaponInfo = weapon;
 		}
 
-		public IEnumerable<Pair<ushort, int>> Templates
+		public IEnumerable<(ushort Template, int Health)> Templates
 		{
 			get
 			{
 				if (Template != 0)
-					yield return Pair.New(Template, 100);
+					yield return (Template, 100);
 
 				if (DamagedTemplate != 0)
-					yield return Pair.New(DamagedTemplate, 49);
+					yield return (DamagedTemplate, 49);
 
 				if (DestroyedTemplate != 0)
-					yield return Pair.New(DestroyedTemplate, 0);
+					yield return (DestroyedTemplate, 0);
 
 				if (DestroyedPlusNorthTemplate != 0)
-					yield return Pair.New(DestroyedPlusNorthTemplate, 0);
+					yield return (DestroyedPlusNorthTemplate, 0);
 
 				if (DestroyedPlusSouthTemplate != 0)
-					yield return Pair.New(DestroyedPlusSouthTemplate, 0);
+					yield return (DestroyedPlusSouthTemplate, 0);
 
 				if (DestroyedPlusBothTemplate != 0)
-					yield return Pair.New(DestroyedPlusBothTemplate, 0);
+					yield return (DestroyedPlusBothTemplate, 0);
 			}
 		}
 	}
@@ -200,7 +200,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			return footprint.Select(c => (IRenderable)(new SpriteRenderable(
 				wr.Theater.TileSprite(new TerrainTile(template, c.Value)),
-				wr.World.Map.CenterOfCell(c.Key), WVec.Zero, -offset, palette, 1f, true))).ToArray();
+				wr.World.Map.CenterOfCell(c.Key), WVec.Zero, -offset, palette, 1f, true, false))).ToArray();
 		}
 
 		bool initialized;
@@ -212,7 +212,7 @@ namespace OpenRA.Mods.Common.Traits
 				var palette = wr.Palette(TileSet.TerrainPaletteInternalName);
 				renderables = new Dictionary<ushort, IRenderable[]>();
 				foreach (var t in info.Templates)
-					renderables.Add(t.First, TemplateRenderables(wr, palette, t.First));
+					renderables.Add(t.Template, TemplateRenderables(wr, palette, t.Template));
 
 				initialized = true;
 			}
@@ -376,7 +376,7 @@ namespace OpenRA.Mods.Common.Traits
 			self.World.AddFrameEndTask(w =>
 			{
 				// Use .FromPos since this actor is killed. Cannot use Target.FromActor
-				info.DemolishWeaponInfo.Impact(Target.FromPos(self.CenterPosition), saboteur, Enumerable.Empty<int>());
+				info.DemolishWeaponInfo.Impact(Target.FromPos(self.CenterPosition), saboteur);
 
 				self.Kill(saboteur);
 			});

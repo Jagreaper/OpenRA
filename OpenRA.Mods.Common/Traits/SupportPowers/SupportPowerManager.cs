@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -19,9 +19,9 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Attach this to the player actor.")]
-	public class SupportPowerManagerInfo : ITraitInfo, Requires<DeveloperModeInfo>, Requires<TechTreeInfo>
+	public class SupportPowerManagerInfo : TraitInfo, Requires<DeveloperModeInfo>, Requires<TechTreeInfo>
 	{
-		public object Create(ActorInitializer init) { return new SupportPowerManager(init); }
+		public override object Create(ActorInitializer init) { return new SupportPowerManager(init); }
 	}
 
 	public class SupportPowerManager : ITick, IResolveOrder, ITechTreeElement
@@ -109,7 +109,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public IEnumerable<SupportPowerInstance> GetPowersForActor(Actor a)
 		{
-			if (a.Owner != Self.Owner || !a.Info.HasTraitInfo<SupportPowerInfo>())
+			if (Powers.Count == 0 || a.Owner != Self.Owner || !a.Info.HasTraitInfo<SupportPowerInfo>())
 				return NoInstances;
 
 			return a.TraitsImplementing<SupportPower>()
@@ -151,7 +151,16 @@ namespace OpenRA.Mods.Common.Traits
 		protected int remainingSubTicks;
 		public int RemainingTicks { get { return remainingSubTicks / 100; } }
 		public bool Active { get; private set; }
-		public bool Disabled { get { return (!prereqsAvailable && !Manager.DevMode.AllTech) || !instancesEnabled || oneShotFired; } }
+		public bool Disabled
+		{
+			get
+			{
+				return Manager.Self.Owner.WinState == WinState.Lost ||
+					(!prereqsAvailable && !Manager.DevMode.AllTech) ||
+					!instancesEnabled ||
+					oneShotFired;
+			}
+		}
 
 		public SupportPowerInfo Info { get { return Instances.Select(i => i.Info).FirstOrDefault(); } }
 		public bool Ready { get { return Active && RemainingTicks == 0; } }
@@ -161,6 +170,11 @@ namespace OpenRA.Mods.Common.Traits
 		bool oneShotFired;
 		protected bool notifiedCharging;
 		bool notifiedReady;
+
+		public void ResetTimer()
+		{
+			remainingSubTicks = TotalTicks * 100;
+		}
 
 		public SupportPowerInstance(string key, SupportPowerInfo info, SupportPowerManager manager)
 		{

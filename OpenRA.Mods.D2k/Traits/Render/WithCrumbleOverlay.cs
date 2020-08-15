@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -23,7 +23,7 @@ namespace OpenRA.Mods.D2k.Traits.Render
 		[Desc("Sequence name to use")]
 		public readonly string Sequence = "crumble-overlay";
 
-		[PaletteReference("IsPlayerPalette")]
+		[PaletteReference(nameof(IsPlayerPalette))]
 		[Desc("Custom palette name")]
 		public readonly string Palette = null;
 
@@ -35,21 +35,34 @@ namespace OpenRA.Mods.D2k.Traits.Render
 
 	public class WithCrumbleOverlay : ConditionalTrait<WithCrumbleOverlayInfo>
 	{
+		readonly WithCrumbleOverlayInfo info;
+		readonly RenderSprites renderSprites;
+		readonly Animation overlay;
+		readonly AnimationWithOffset animation;
+
 		public WithCrumbleOverlay(ActorInitializer init, WithCrumbleOverlayInfo info)
 			: base(info)
 		{
-			if (init.Contains<SkipMakeAnimsInit>())
+			this.info = info;
+
+			if (init.Contains<SkipMakeAnimsInit>(info))
 				return;
 
-			var rs = init.Self.Trait<RenderSprites>();
+			renderSprites = init.Self.Trait<RenderSprites>();
 
-			var overlay = new Animation(init.World, rs.GetImage(init.Self));
-			var anim = new AnimationWithOffset(overlay, null, () => IsTraitDisabled);
+			overlay = new Animation(init.World, renderSprites.GetImage(init.Self));
+			animation = new AnimationWithOffset(overlay, null, () => IsTraitDisabled);
+		}
+
+		protected override void TraitEnabled(Actor self)
+		{
+			if (overlay == null)
+				return;
+
+			renderSprites.Add(animation, info.Palette, info.IsPlayerPalette);
 
 			// Remove the animation once it is complete
-			overlay.PlayThen(info.Sequence, () => init.World.AddFrameEndTask(w => rs.Remove(anim)));
-
-			rs.Add(anim, info.Palette, info.IsPlayerPalette);
+			overlay.PlayThen(info.Sequence, () => self.World.AddFrameEndTask(w => renderSprites.Remove(animation)));
 		}
 	}
 }

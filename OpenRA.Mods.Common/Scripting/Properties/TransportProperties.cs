@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -44,8 +44,8 @@ namespace OpenRA.Mods.Common.Scripting
 			cargo.Load(Self, a);
 		}
 
-		[Desc("Remove the first actor from the transport.  This actor is not added to the world.")]
-		public Actor UnloadPassenger() { return cargo.Unload(Self); }
+		[Desc("Remove an existing actor (or first actor if none specified) from the transport.  This actor is not added to the world.")]
+		public Actor UnloadPassenger(Actor a = null) { return cargo.Unload(Self, a); }
 
 		[ScriptActorPropertyActivity]
 		[Desc("Command transport to unload passengers.")]

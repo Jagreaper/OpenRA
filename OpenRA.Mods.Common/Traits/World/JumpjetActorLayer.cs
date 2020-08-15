@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class JumpjetActorLayerInfo : ITraitInfo
+	public class JumpjetActorLayerInfo : TraitInfo
 	{
 		[Desc("Terrain type of the airborne layer.")]
 		public readonly string TerrainType = "Jumpjet";
@@ -25,7 +25,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Cell radius for smoothing adjacent cell heights.")]
 		public readonly int SmoothingRadius = 2;
 
-		public object Create(ActorInitializer init) { return new JumpjetActorLayer(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new JumpjetActorLayer(init.Self, this); }
 	}
 
 	public class JumpjetActorLayer : ICustomMovementLayer
@@ -83,9 +83,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (jli.JumpjetTransitionOnRamps)
 				return true;
 
-			var tile = map.Tiles[cell];
-			var ti = map.Rules.TileSet.GetTileInfo(tile);
-			return ti == null || ti.RampType == 0;
+			return map.Ramp[cell] == 0;
 		}
 
 		int ICustomMovementLayer.EntryMovementCost(ActorInfo a, LocomotorInfo li, CPos cell)

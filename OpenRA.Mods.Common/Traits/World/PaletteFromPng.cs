@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,6 +9,7 @@
  */
 #endregion
 
+using System;
 using System.Collections.Generic;
 using OpenRA.FileFormats;
 using OpenRA.FileSystem;
@@ -18,7 +19,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Load a PNG and use its embedded palette.")]
-	class PaletteFromPngInfo : ITraitInfo, IProvidesCursorPaletteInfo
+	class PaletteFromPngInfo : TraitInfo, IProvidesCursorPaletteInfo
 	{
 		[PaletteDefinition]
 		[FieldLoader.Require]
@@ -40,13 +41,17 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Whether this palette is available for cursors.")]
 		public readonly bool CursorPalette = false;
 
-		public object Create(ActorInitializer init) { return new PaletteFromPng(init.World, this); }
+		public override object Create(ActorInitializer init) { return new PaletteFromPng(init.World, this); }
 
 		string IProvidesCursorPaletteInfo.Palette { get { return CursorPalette ? Name : null; } }
 
 		ImmutablePalette IProvidesCursorPaletteInfo.ReadPalette(IReadOnlyFileSystem fileSystem)
 		{
 			var png = new Png(fileSystem.Open(Filename));
+
+			if (png.Palette == null)
+				throw new InvalidOperationException("Unable to load palette `{0}` from non-paletted png `{1}`".F(Name, Filename));
+
 			var colors = new uint[Palette.Size];
 
 			for (var i = 0; i < png.Palette.Length; i++)

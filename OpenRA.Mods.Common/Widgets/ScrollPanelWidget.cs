@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -48,6 +48,9 @@ namespace OpenRA.Mods.Common.Widgets
 		public string Background = "scrollpanel-bg";
 		public string ScrollBarBackground = "scrollpanel-bg";
 		public string Button = "scrollpanel-button";
+		public readonly string Decorations = "scrollpanel-decorations";
+		public readonly string DecorationScrollUp = "up";
+		public readonly string DecorationScrollDown = "down";
 		public int ContentHeight;
 		public ILayout Layout;
 		public int MinimumThumbSize = 10;
@@ -146,13 +149,16 @@ namespace OpenRA.Mods.Common.Widgets
 			UpdateSmoothScrolling();
 
 			var rb = RenderBounds;
-
 			var scrollbarHeight = rb.Height - 2 * ScrollbarWidth;
 
-			var thumbHeight = ContentHeight == 0 ? 0 : Math.Max(MinimumThumbSize, (int)(scrollbarHeight * Math.Min(rb.Height * 1f / ContentHeight, 1f)));
-			var thumbOrigin = rb.Y + ScrollbarWidth + (int)((scrollbarHeight - thumbHeight) * (-1f * currentListOffset / (ContentHeight - rb.Height)));
-			if (thumbHeight == scrollbarHeight)
-				thumbHeight = 0;
+			// Scroll thumb is only visible if the content does not fit within the panel bounds
+			var thumbHeight = 0;
+			var thumbOrigin = rb.Y + ScrollbarWidth;
+			if (ContentHeight > rb.Height)
+			{
+				thumbHeight = Math.Max(MinimumThumbSize, scrollbarHeight * rb.Height / ContentHeight);
+				thumbOrigin += (int)((scrollbarHeight - thumbHeight) * currentListOffset / (rb.Height - ContentHeight));
+			}
 
 			switch (ScrollBar)
 			{
@@ -198,9 +204,14 @@ namespace OpenRA.Mods.Common.Widgets
 				var upOffset = !upPressed || upDisabled ? 4 : 4 + ButtonDepth;
 				var downOffset = !downPressed || downDisabled ? 4 : 4 + ButtonDepth;
 
-				WidgetUtils.DrawRGBA(ChromeProvider.GetImage("scrollbar", upPressed || upDisabled ? "up_pressed" : "up_arrow"),
+				var upArrowImageName = WidgetUtils.GetStatefulImageName(DecorationScrollUp, upDisabled, upPressed, upHover);
+				var upArrowImage = ChromeProvider.GetImage(Decorations, upArrowImageName) ?? ChromeProvider.GetImage(Decorations, DecorationScrollUp);
+				WidgetUtils.DrawRGBA(upArrowImage,
 					new float2(upButtonRect.Left + upOffset, upButtonRect.Top + upOffset));
-				WidgetUtils.DrawRGBA(ChromeProvider.GetImage("scrollbar", downPressed || downDisabled ? "down_pressed" : "down_arrow"),
+
+				var downArrowImageName = WidgetUtils.GetStatefulImageName(DecorationScrollDown, downDisabled, downPressed, downHover);
+				var downArrowImage = ChromeProvider.GetImage(Decorations, downArrowImageName) ?? ChromeProvider.GetImage(Decorations, DecorationScrollDown);
+				WidgetUtils.DrawRGBA(downArrowImage,
 					new float2(downButtonRect.Left + downOffset, downButtonRect.Top + downOffset));
 			}
 

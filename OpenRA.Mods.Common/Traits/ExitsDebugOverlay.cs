@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -19,7 +19,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Displays `Exit` data for factories.")]
-	public class ExitsDebugOverlayInfo : ITraitInfo, Requires<ExitInfo>
+	public class ExitsDebugOverlayInfo : TraitInfo, Requires<ExitInfo>
 	{
 		[Desc("Should cell vectors be drawn for each perimeter cell?")]
 		public readonly bool DrawPerimiterCellVectors = true;
@@ -30,7 +30,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Should lines be drawn for each exit (from spawn offset to the center of the exit cell)?")]
 		public readonly bool DrawSpawnOffsetLines = true;
 
-		object ITraitInfo.Create(ActorInitializer init) { return new ExitsDebugOverlay(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new ExitsDebugOverlay(init.Self, this); }
 	}
 
 	public class ExitsDebugOverlay : IRenderAnnotationsWhenSelected
@@ -70,7 +70,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			if (info.DrawPerimiterCellVectors)
 			{
-				var occupiedCells = self.OccupiesSpace.OccupiedCells().Select(p => p.First).ToArray();
+				var occupiedCells = self.OccupiesSpace.OccupiedCells().Select(p => p.Cell).ToArray();
 				perimeterCells = Util.ExpandFootprint(occupiedCells, true).Except(occupiedCells).ToArray();
 
 				foreach (var perimCell in perimeterCells)

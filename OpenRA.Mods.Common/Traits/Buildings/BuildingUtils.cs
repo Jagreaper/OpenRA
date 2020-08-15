@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -39,14 +39,8 @@ namespace OpenRA.Mods.Common.Traits
 			else if (!bi.AllowInvalidPlacement && world.ActorMap.GetActorsAt(cell).Any(a => a != toIgnore))
 				return false;
 
-			var tile = world.Map.Tiles[cell];
-			var tileInfo = world.Map.Rules.TileSet.GetTileInfo(tile);
-
-			// TODO: This is bandaiding over bogus tilesets.
-			if (tileInfo != null && tileInfo.RampType > 0)
-				return false;
-
-			return bi.TerrainTypes.Contains(world.Map.GetTerrainInfo(cell).Type);
+			// Buildings can never be placed on ramps
+			return world.Map.Ramp[cell] == 0 && bi.TerrainTypes.Contains(world.Map.GetTerrainInfo(cell).Type);
 		}
 
 		public static bool CanPlaceBuilding(this World world, CPos cell, ActorInfo ai, BuildingInfo bi, Actor toIgnore)
@@ -55,18 +49,18 @@ namespace OpenRA.Mods.Common.Traits
 				return true;
 
 			var res = world.WorldActor.TraitOrDefault<ResourceLayer>();
-			return bi.Tiles(cell).All(
-				t => world.Map.Contains(t) && (res == null || res.GetResource(t) == null) &&
+			return bi.Tiles(cell).All(t => world.Map.Contains(t) &&
+				(bi.AllowPlacementOnResources || res == null || res.GetResourceType(t) == null) &&
 					world.IsCellBuildable(t, ai, bi, toIgnore));
 		}
 
-		public static IEnumerable<Pair<CPos, Actor>> GetLineBuildCells(World world, CPos cell, ActorInfo ai, BuildingInfo bi, Player owner)
+		public static IEnumerable<(CPos Cell, Actor Actor)> GetLineBuildCells(World world, CPos cell, ActorInfo ai, BuildingInfo bi, Player owner)
 		{
 			var lbi = ai.TraitInfo<LineBuildInfo>();
 			var topLeft = cell;	// 1x1 assumption!
 
 			if (world.IsCellBuildable(topLeft, ai, bi))
-				yield return Pair.New<CPos, Actor>(topLeft, null);
+				yield return (topLeft, null);
 
 			// Start at place location, search outwards
 			// TODO: First make it work, then make it nice
@@ -97,7 +91,7 @@ namespace OpenRA.Mods.Common.Traits
 				// Place intermediate-line sections
 				if (dirs[d] > 0)
 					for (var i = 1; i < dirs[d]; i++)
-						yield return Pair.New(topLeft + i * vecs[d], connectors[d]);
+						yield return (topLeft + i * vecs[d], connectors[d]);
 			}
 		}
 	}

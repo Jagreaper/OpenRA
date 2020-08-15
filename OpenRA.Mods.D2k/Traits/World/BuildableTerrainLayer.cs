@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -17,7 +17,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.D2k.Traits
 {
 	[Desc("Attach this to the world actor. Required for LaysTerrain to work.")]
-	public class BuildableTerrainLayerInfo : ITraitInfo
+	public class BuildableTerrainLayerInfo : TraitInfo
 	{
 		[Desc("Palette to render the layer sprites in.")]
 		public readonly string Palette = TileSet.TerrainPaletteInternalName;
@@ -25,13 +25,13 @@ namespace OpenRA.Mods.D2k.Traits
 		[Desc("The hitpoints, which can be reduced by the DamagesConcreteWarhead.")]
 		public readonly int MaxStrength = 9000;
 
-		public object Create(ActorInitializer init) { return new BuildableTerrainLayer(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new BuildableTerrainLayer(init.Self, this); }
 	}
 
 	public class BuildableTerrainLayer : IRenderOverlay, IWorldLoaded, ITickRender, INotifyActorDisposing
 	{
 		readonly BuildableTerrainLayerInfo info;
-		readonly Dictionary<CPos, Sprite> dirty = new Dictionary<CPos, Sprite>();
+		readonly Dictionary<CPos, TerrainTile?> dirty = new Dictionary<CPos, TerrainTile?>();
 		readonly Map map;
 		readonly CellLayer<int> strength;
 
@@ -61,10 +61,7 @@ namespace OpenRA.Mods.D2k.Traits
 
 			map.CustomTerrain[cell] = map.Rules.TileSet.GetTerrainIndex(tile);
 			strength[cell] = info.MaxStrength;
-
-			// Terrain tiles define their origin at the topleft
-			var s = theater.TileSprite(tile);
-			dirty[cell] = new Sprite(s.Sheet, s.Bounds, s.ZRamp, float2.Zero, s.Channel, s.BlendMode);
+			dirty[cell] = tile;
 		}
 
 		public void HitTile(CPos cell, int damage)
@@ -94,7 +91,17 @@ namespace OpenRA.Mods.D2k.Traits
 			{
 				if (!self.World.FogObscures(kv.Key))
 				{
-					render.Update(kv.Key, kv.Value);
+					var tile = kv.Value;
+					if (tile.HasValue)
+					{
+						// Terrain tiles define their origin at the topleft
+						var s = theater.TileSprite(tile.Value);
+						var ss = new Sprite(s.Sheet, s.Bounds, s.ZRamp, float2.Zero, s.Channel, s.BlendMode);
+						render.Update(kv.Key, ss, false);
+					}
+					else
+						render.Clear(kv.Key);
+
 					remove.Add(kv.Key);
 				}
 			}

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -21,7 +21,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.D2k.Traits
 {
 	[Desc("Seeds resources by explosive eruptions after accumulation times.")]
-	public class SpiceBloomInfo : ITraitInfo, IRenderActorPreviewSpritesInfo, Requires<RenderSpritesInfo>
+	public class SpiceBloomInfo : TraitInfo, IRenderActorPreviewSpritesInfo, Requires<RenderSpritesInfo>
 	{
 		[SequenceReference]
 		public readonly string[] GrowthSequences = { "grow1", "grow2", "grow3" };
@@ -47,7 +47,7 @@ namespace OpenRA.Mods.D2k.Traits
 		[Desc("The maximum distance in cells that spice may be expelled.")]
 		public readonly int Range = 5;
 
-		public object Create(ActorInitializer init) { return new SpiceBloom(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new SpiceBloom(init.Self, this); }
 
 		public IEnumerable<IActorPreview> RenderPreviewSprites(ActorPreviewInitializer init, RenderSpritesInfo rs, string image, int facings, PaletteReference p)
 		{
@@ -126,21 +126,24 @@ namespace OpenRA.Mods.D2k.Traits
 
 			for (var i = 0; i < pieces; i++)
 			{
-				var cell = cells.SkipWhile(p => resLayer.GetResource(p) == resType && resLayer.IsFull(p)).Cast<CPos?>().RandomOrDefault(self.World.SharedRandom);
+				var cell = cells.SkipWhile(p => resLayer.GetResourceType(p) == resType && resLayer.IsFull(p)).Cast<CPos?>().RandomOrDefault(self.World.SharedRandom);
 				if (cell == null)
 					cell = cells.Random(self.World.SharedRandom);
 
 				var args = new ProjectileArgs
 				{
 					Weapon = self.World.Map.Rules.Weapons[info.Weapon.ToLowerInvariant()],
-					Facing = 0,
-					CurrentMuzzleFacing = () => 0,
+					Facing = WAngle.Zero,
+					CurrentMuzzleFacing = () => WAngle.Zero,
 
 					DamageModifiers = self.TraitsImplementing<IFirepowerModifier>()
 						.Select(a => a.GetFirepowerModifier()).ToArray(),
 
 					InaccuracyModifiers = self.TraitsImplementing<IInaccuracyModifier>()
 						.Select(a => a.GetInaccuracyModifier()).ToArray(),
+
+					RangeModifiers = self.TraitsImplementing<IRangeModifier>()
+						.Select(a => a.GetRangeModifier()).ToArray(),
 
 					Source = self.CenterPosition,
 					CurrentSource = () => self.CenterPosition,

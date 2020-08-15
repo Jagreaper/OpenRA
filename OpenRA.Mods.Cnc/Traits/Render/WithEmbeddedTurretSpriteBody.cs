@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -34,9 +34,7 @@ namespace OpenRA.Mods.Cnc.Traits.Render
 			var wsb = init.Actor.TraitInfos<WithSpriteBodyInfo>().FirstOrDefault();
 
 			// Show the correct turret facing
-			var facing = init.Contains<TurretFacingInit>() ? init.Get<TurretFacingInit>().Value(init.World) : t.InitialFacing;
-
-			var anim = new Animation(init.World, image, () => facing);
+			var anim = new Animation(init.World, image, t.WorldFacingFromInit(init));
 			anim.PlayRepeating(RenderSprites.NormalizeSequence(anim, init.GetDamageState(), wsb.Sequence));
 
 			yield return new SpriteActorPreview(anim, () => WVec.Zero, () => 0, p, rs.Scale);
@@ -47,11 +45,11 @@ namespace OpenRA.Mods.Cnc.Traits.Render
 	{
 		readonly Turreted turreted;
 
-		static Func<int> MakeTurretFacingFunc(Actor self)
+		static Func<WAngle> MakeTurretFacingFunc(Actor self)
 		{
 			// Turret artwork is baked into the sprite, so only the first turret makes sense.
 			var turreted = self.TraitsImplementing<Turreted>().FirstOrDefault();
-			return () => turreted.TurretFacing;
+			return () => turreted.WorldOrientation.Yaw;
 		}
 
 		public WithEmbeddedTurretSpriteBody(ActorInitializer init, WithSpriteBodyInfo info)

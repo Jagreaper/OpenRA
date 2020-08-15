@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,10 +10,8 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Activities;
 using OpenRA.GameRules;
-using OpenRA.Mods.Common;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Orders;
 using OpenRA.Mods.Common.Traits;
@@ -23,7 +21,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
-	class MadTankInfo : ITraitInfo, IRulesetLoaded, Requires<ExplodesInfo>, Requires<WithFacingSpriteBodyInfo>
+	class MadTankInfo : TraitInfo, IRulesetLoaded, Requires<ExplodesInfo>, Requires<WithFacingSpriteBodyInfo>
 	{
 		[SequenceReference]
 		public readonly string ThumpSequence = "piston";
@@ -32,12 +30,6 @@ namespace OpenRA.Mods.Cnc.Traits
 
 		[WeaponReference]
 		public readonly string ThumpDamageWeapon = "MADTankThump";
-
-		public readonly int ThumpShakeIntensity = 3;
-
-		public readonly float2 ThumpShakeMultiplier = new float2(1, 0);
-
-		public readonly int ThumpShakeTime = 10;
 
 		[Desc("Measured in ticks.")]
 		public readonly int ChargeDelay = 96;
@@ -69,7 +61,7 @@ namespace OpenRA.Mods.Cnc.Traits
 		[Desc("Types of damage that this trait causes to self while self-destructing. Leave empty for no damage types.")]
 		public readonly BitSet<DamageType> DamageTypes = default(BitSet<DamageType>);
 
-		public object Create(ActorInitializer init) { return new MadTank(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new MadTank(init.Self, this); }
 
 		public void RulesetLoaded(Ruleset rules, ActorInfo ai)
 		{
@@ -89,20 +81,13 @@ namespace OpenRA.Mods.Cnc.Traits
 		}
 	}
 
-	class MadTank : INotifyCreated, IIssueOrder, IResolveOrder, IOrderVoice, IIssueDeployOrder
+	class MadTank : IIssueOrder, IResolveOrder, IOrderVoice, IIssueDeployOrder
 	{
 		readonly MadTankInfo info;
-
-		ConditionManager conditionManager;
 
 		public MadTank(Actor self, MadTankInfo info)
 		{
 			this.info = info;
-		}
-
-		void INotifyCreated.Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
 		}
 
 		public IEnumerable<IOrderTargeter> Orders
@@ -127,7 +112,7 @@ namespace OpenRA.Mods.Cnc.Traits
 			return new Order("Detonate", self, queued);
 		}
 
-		bool IIssueDeployOrder.CanIssueDeployOrder(Actor self) { return true; }
+		bool IIssueDeployOrder.CanIssueDeployOrder(Actor self, bool queued) { return true; }
 
 		string IOrderVoice.VoicePhraseForOrder(Actor self, Order order)
 		{
@@ -201,8 +186,7 @@ namespace OpenRA.Mods.Cnc.Traits
 					if (target.Type == TargetType.Invalid)
 						return true;
 
-					if (mad.conditionManager != null && !string.IsNullOrEmpty(mad.info.DeployedCondition))
-						mad.conditionManager.GrantCondition(self, mad.info.DeployedCondition);
+					self.GrantCondition(mad.info.DeployedCondition);
 
 					self.World.AddFrameEndTask(w => EjectDriver());
 					if (mad.info.ThumpSequence != null)
@@ -217,10 +201,8 @@ namespace OpenRA.Mods.Cnc.Traits
 					if (mad.info.ThumpDamageWeapon != null)
 					{
 						// Use .FromPos since this weapon needs to affect more than just the MadTank actor
-						mad.info.ThumpDamageWeaponInfo.Impact(Target.FromPos(self.CenterPosition), self, Enumerable.Empty<int>());
+						mad.info.ThumpDamageWeaponInfo.Impact(Target.FromPos(self.CenterPosition), self);
 					}
-
-					screenShaker.AddEffect(mad.info.ThumpShakeTime, self.CenterPosition, mad.info.ThumpShakeIntensity, mad.info.ThumpShakeMultiplier);
 				}
 
 				if (ticks == mad.info.ChargeDelay)
@@ -241,7 +223,7 @@ namespace OpenRA.Mods.Cnc.Traits
 					if (mad.info.DetonationWeapon != null)
 					{
 						// Use .FromPos since this actor is killed. Cannot use Target.FromActor
-						mad.info.DetonationWeaponInfo.Impact(Target.FromPos(self.CenterPosition), self, Enumerable.Empty<int>());
+						mad.info.DetonationWeaponInfo.Impact(Target.FromPos(self.CenterPosition), self);
 					}
 
 					self.Kill(self, mad.info.DamageTypes);

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -16,10 +16,10 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	// Allows third party mods to detect whether an actor was created by PlaceBuilding.
-	public class PlaceBuildingInit : IActorInit { }
+	public class PlaceBuildingInit : RuntimeFlagInit { }
 
 	[Desc("Allows the player to execute build orders.", " Attach this to the player actor.")]
-	public class PlaceBuildingInfo : ITraitInfo
+	public class PlaceBuildingInfo : TraitInfo
 	{
 		[Desc("Play NewOptionsNotification this many ticks after building placement.")]
 		public readonly int NewOptionsNotificationDelay = 10;
@@ -34,7 +34,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Hotkey to toggle between PlaceBuildingVariants when placing a structure.")]
 		public HotkeyReference ToggleVariantKey = new HotkeyReference();
 
-		public object Create(ActorInitializer init) { return new PlaceBuilding(this); }
+		public override object Create(ActorInitializer init) { return new PlaceBuilding(this); }
 	}
 
 	public class PlaceBuilding : IResolveOrder, ITick
@@ -119,16 +119,16 @@ namespace OpenRA.Mods.Common.Traits
 
 					foreach (var t in BuildingUtils.GetLineBuildCells(w, targetLocation, actorInfo, buildingInfo, order.Player))
 					{
-						if (t.First == targetLocation)
+						if (t.Cell == targetLocation)
 							continue;
 
-						w.CreateActor(t.First == targetLocation ? actorInfo.Name : segmentType, new TypeDictionary
+						w.CreateActor(t.Cell == targetLocation ? actorInfo.Name : segmentType, new TypeDictionary
 						{
-							new LocationInit(t.First),
+							new LocationInit(t.Cell),
 							new OwnerInit(order.Player),
 							new FactionInit(faction),
-							new LineBuildDirectionInit(t.First.X == targetLocation.X ? LineBuildDirection.Y : LineBuildDirection.X),
-							new LineBuildParentInit(new[] { t.Second, placed }),
+							new LineBuildDirectionInit(t.Cell.X == targetLocation.X ? LineBuildDirection.Y : LineBuildDirection.X),
+							new LineBuildParentInit(new[] { t.Actor, placed }),
 							new PlaceBuildingInit()
 						});
 					}

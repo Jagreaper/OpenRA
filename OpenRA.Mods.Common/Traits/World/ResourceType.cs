@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -16,7 +16,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class ResourceTypeInfo : ITraitInfo, IMapPreviewSignatureInfo
+	public class ResourceTypeInfo : TraitInfo, IMapPreviewSignatureInfo
 	{
 		[Desc("Sequence image that holds the different variants.")]
 		public readonly string Image = "resources";
@@ -63,10 +63,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Allow resource to spawn on ramp tiles.")]
 		public readonly bool AllowOnRamps = false;
 
-		[Desc("Harvester content pip color.")]
-		public PipType PipColor = PipType.Yellow;
-
-		void IMapPreviewSignatureInfo.PopulateMapPreviewSignatureCells(Map map, ActorInfo ai, ActorReference s, List<Pair<MPos, Color>> destinationBuffer)
+		void IMapPreviewSignatureInfo.PopulateMapPreviewSignatureCells(Map map, ActorInfo ai, ActorReference s, List<(MPos, Color)> destinationBuffer)
 		{
 			var tileSet = map.Rules.TileSet;
 			var color = tileSet[tileSet.GetTerrainIndex(TerrainType)].Color;
@@ -77,29 +74,28 @@ namespace OpenRA.Mods.Common.Traits
 				{
 					var cell = new MPos(i, j);
 					if (map.Resources[cell].Type == ResourceType)
-						destinationBuffer.Add(new Pair<MPos, Color>(cell, color));
+						destinationBuffer.Add((cell, color));
 				}
 			}
 		}
 
-		public object Create(ActorInitializer init) { return new ResourceType(this, init.World); }
+		public override object Create(ActorInitializer init) { return new ResourceType(this, init.World); }
 	}
 
 	public class ResourceType : IWorldLoaded
 	{
 		public readonly ResourceTypeInfo Info;
 		public PaletteReference Palette { get; private set; }
-		public readonly Dictionary<string, Sprite[]> Variants;
+		public readonly Dictionary<string, ISpriteSequence> Variants;
 
 		public ResourceType(ResourceTypeInfo info, World world)
 		{
 			Info = info;
-			Variants = new Dictionary<string, Sprite[]>();
+			Variants = new Dictionary<string, ISpriteSequence>();
 			foreach (var v in info.Sequences)
 			{
 				var seq = world.Map.Rules.Sequences.GetSequence(Info.Image, v);
-				var sprites = Exts.MakeArray(seq.Length, x => seq.GetSprite(x));
-				Variants.Add(v, sprites);
+				Variants.Add(v, seq);
 			}
 		}
 

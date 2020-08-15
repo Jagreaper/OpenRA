@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,7 +15,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Controls the map difficulty, tech level, and short game lobby options.")]
-	public class ScriptLobbyDropdownInfo : ITraitInfo, ILobbyOptions
+	public class ScriptLobbyDropdownInfo : TraitInfo, ILobbyOptions
 	{
 		[FieldLoader.Require]
 		[Desc("Internal id for this option.")]
@@ -53,7 +53,7 @@ namespace OpenRA.Mods.Common.Traits
 				new ReadOnlyDictionary<string, string>(Values), Default, Locked);
 		}
 
-		public object Create(ActorInitializer init) { return new ScriptLobbyDropdown(this); }
+		public override object Create(ActorInitializer init) { return new ScriptLobbyDropdown(this); }
 	}
 
 	public class ScriptLobbyDropdown : INotifyCreated

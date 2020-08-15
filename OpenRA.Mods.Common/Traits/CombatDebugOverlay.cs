@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -21,9 +21,9 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Displays fireports, muzzle offsets, and hit areas in developer mode.")]
-	public class CombatDebugOverlayInfo : ITraitInfo
+	public class CombatDebugOverlayInfo : TraitInfo
 	{
-		public object Create(ActorInitializer init) { return new CombatDebugOverlay(init.Self); }
+		public override object Create(ActorInitializer init) { return new CombatDebugOverlay(init.Self); }
 	}
 
 	public class CombatDebugOverlay : IRenderAnnotations, INotifyDamage, INotifyCreated
@@ -66,7 +66,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			var activeShapes = shapes.Where(Exts.IsTraitEnabled);
 			foreach (var s in activeShapes)
-				foreach (var r in s.Info.Type.RenderDebugOverlay(wr, self))
+				foreach (var r in s.RenderDebugOverlay(self, wr))
 					yield return r;
 
 			var positions = Target.FromActor(self).Positions;
@@ -110,9 +110,15 @@ namespace OpenRA.Mods.Common.Traits
 
 				foreach (var b in a.Barrels)
 				{
+					var barrelEnd = new Barrel
+					{
+						Offset = b.Offset + new WVec(224, 0, 0),
+						Yaw = b.Yaw
+					};
+
 					var muzzle = self.CenterPosition + a.MuzzleOffset(self, b);
-					var dirOffset = new WVec(0, -224, 0).Rotate(a.MuzzleOrientation(self, b));
-					yield return new LineAnnotationRenderable(muzzle, muzzle + dirOffset, 1, Color.White);
+					var endMuzzle = self.CenterPosition + a.MuzzleOffset(self, barrelEnd);
+					yield return new LineAnnotationRenderable(muzzle, endMuzzle, 1, Color.White);
 				}
 			}
 		}

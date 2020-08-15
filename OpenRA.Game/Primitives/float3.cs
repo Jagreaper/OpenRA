@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -62,5 +62,6 @@ namespace OpenRA
 		public override string ToString() { return "{0},{1},{2}".F(X, Y, Z); }
 
 		public static readonly float3 Zero = new float3(0, 0, 0);
+		public static readonly float3 Ones = new float3(1, 1, 1);
 	}
 }

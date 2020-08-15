@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,6 @@ using System.IO;
 using Eluant;
 using OpenRA.Effects;
 using OpenRA.GameRules;
-using OpenRA.Graphics;
 using OpenRA.Mods.Common.Effects;
 using OpenRA.Mods.Common.FileFormats;
 using OpenRA.Mods.Common.Traits;
@@ -198,13 +197,16 @@ namespace OpenRA.Mods.Common.Scripting
 			Game.AddChatLine(prefix, c, text);
 		}
 
-		[Desc("Display a system message to the player.")]
-		public void DisplaySystemMessage(string text, string prefix = "Mission")
+		[Desc("Display a system message to the player. If 'prefix' is nil the default system prefix is used.")]
+		public void DisplaySystemMessage(string text, string prefix = null)
 		{
 			if (string.IsNullOrEmpty(text))
 				return;
 
-			Game.AddSystemLine(prefix, text);
+			if (string.IsNullOrEmpty(prefix))
+				Game.AddSystemLine(text);
+			else
+				Game.AddSystemLine(prefix, text);
 		}
 
 		[Desc("Displays a debug message to the player, if \"Show Map Debug Messages\" is checked in the settings.")]

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -25,7 +25,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Enable the building's idle animation.")]
 		public readonly bool Animated = true;
 
-		[PaletteReference("OverridePaletteIsPlayerPalette")]
+		[PaletteReference(nameof(OverridePaletteIsPlayerPalette))]
 		[Desc("Custom palette name.")]
 		public readonly string OverridePalette = null;
 
@@ -68,8 +68,8 @@ namespace OpenRA.Mods.Common.Traits
 
 			if (!string.IsNullOrEmpty(info.OverridePalette))
 			{
-				var owner = init.Get<OwnerInit>().Value(wr.World);
-				palette = wr.Palette(info.OverridePaletteIsPlayerPalette ? info.OverridePalette + owner.InternalName : info.OverridePalette);
+				var ownerName = init.Get<OwnerInit>().InternalName;
+				palette = wr.Palette(info.OverridePaletteIsPlayerPalette ? info.OverridePalette + ownerName : info.OverridePalette);
 			}
 		}
 

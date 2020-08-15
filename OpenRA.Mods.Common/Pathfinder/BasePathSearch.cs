@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -27,7 +27,7 @@ namespace OpenRA.Mods.Common.Pathfinder
 		/// <summary>
 		/// Stores the analyzed nodes by the expand function
 		/// </summary>
-		IEnumerable<Pair<CPos, int>> Considered { get; }
+		IEnumerable<(CPos Cell, int Cost)> Considered { get; }
 
 		Player Owner { get; }
 
@@ -68,7 +68,7 @@ namespace OpenRA.Mods.Common.Pathfinder
 
 		protected IPriorityQueue<GraphConnection> OpenQueue { get; private set; }
 
-		public abstract IEnumerable<Pair<CPos, int>> Considered { get; }
+		public abstract IEnumerable<(CPos Cell, int Cost)> Considered { get; }
 
 		public Player Owner { get { return Graph.Actor.Owner; } }
 		public int MaxCost { get; protected set; }
@@ -96,7 +96,7 @@ namespace OpenRA.Mods.Common.Pathfinder
 
 			// Determine the minimum possible cost for moving horizontally between cells based on terrain speeds.
 			// The minimum possible cost diagonally is then Sqrt(2) times more costly.
-			cellCost = graph.Actor.Trait<Mobile>().Locomotor.Info.TerrainSpeeds.Values.Min(ti => ti.Cost);
+			cellCost = ((Mobile)graph.Actor.OccupiesSpace).Info.LocomotorInfo.TerrainSpeeds.Values.Min(ti => ti.Cost);
 			diagonalCellCost = cellCost * 141421 / 100000;
 		}
 

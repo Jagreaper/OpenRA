@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,7 +15,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("A beacon that is constructed from a circle sprite that is animated once and a moving arrow sprite.")]
-	public class PlaceBeaconInfo : ITraitInfo
+	public class PlaceBeaconInfo : TraitInfo
 	{
 		public readonly int Duration = 30 * 25;
 
@@ -26,7 +26,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public readonly bool IsPlayerPalette = true;
 
-		[PaletteReference("IsPlayerPalette")]
+		[PaletteReference(nameof(IsPlayerPalette))]
 		public readonly string Palette = "player";
 
 		public readonly string BeaconImage = "beacon";
@@ -40,7 +40,7 @@ namespace OpenRA.Mods.Common.Traits
 		[SequenceReference("BeaconImage")]
 		public readonly string CircleSequence = "circles";
 
-		public object Create(ActorInitializer init) { return new PlaceBeacon(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new PlaceBeacon(init.Self, this); }
 	}
 
 	public class PlaceBeacon : IResolveOrder

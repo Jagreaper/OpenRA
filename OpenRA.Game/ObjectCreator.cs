@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -26,7 +26,7 @@ namespace OpenRA
 
 		readonly Cache<string, Type> typeCache;
 		readonly Cache<Type, ConstructorInfo> ctorCache;
-		readonly Pair<Assembly, string>[] assemblies;
+		readonly (Assembly Assembly, string Namespace)[] assemblies;
 
 		public ObjectCreator(Manifest manifest, InstalledMods mods)
 		{
@@ -59,7 +59,7 @@ namespace OpenRA
 			}
 
 			AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
-			assemblies = assemblyList.SelectMany(asm => asm.GetNamespaces().Select(ns => Pair.New(asm, ns))).ToArray();
+			assemblies = assemblyList.SelectMany(asm => asm.GetNamespaces().Select(ns => (asm, ns))).ToArray();
 		}
 
 		Assembly ResolveAssembly(object sender, ResolveEventArgs e)
@@ -71,11 +71,11 @@ namespace OpenRA
 			if (assemblies == null)
 				return null;
 
-			return assemblies.Select(a => a.First).FirstOrDefault(a => a.FullName == e.Name);
+			return assemblies.Select(a => a.Assembly).FirstOrDefault(a => a.FullName == e.Name);
 		}
 
-		public static Action<string> MissingTypeAction =
-			s => { throw new InvalidOperationException("Cannot locate type: {0}".F(s)); };
+		// Only used by the linter to prevent exceptions from being thrown during a lint run
+		public static Action<string> MissingTypeAction = null;
 
 		public T CreateObject<T>(string className)
 		{
@@ -87,7 +87,12 @@ namespace OpenRA
 			var type = typeCache[className];
 			if (type == null)
 			{
-				MissingTypeAction(className);
+				// HACK: The linter does not want to crash but only print an error instead
+				if (MissingTypeAction != null)
+					MissingTypeAction(className);
+				else
+					throw new InvalidOperationException("Cannot locate type: {0}".F(className));
+
 				return default(T);
 			}
 
@@ -101,7 +106,7 @@ namespace OpenRA
 		public Type FindType(string className)
 		{
 			return assemblies
-				.Select(pair => pair.First.GetType(pair.Second + "." + className, false))
+				.Select(pair => pair.Assembly.GetType(pair.Namespace + "." + className, false))
 				.FirstOrDefault(t => t != null);
 		}
 
@@ -141,7 +146,7 @@ namespace OpenRA
 
 		public IEnumerable<Type> GetTypes()
 		{
-			return assemblies.Select(ma => ma.First).Distinct()
+			return assemblies.Select(ma => ma.Assembly).Distinct()
 				.SelectMany(ma => ma.GetTypes());
 		}
 

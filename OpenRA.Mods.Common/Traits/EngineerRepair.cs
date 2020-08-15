@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,7 +10,6 @@
 #endregion
 
 using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Orders;
 using OpenRA.Primitives;
@@ -37,10 +36,10 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Sound to play when repairing is done.")]
 		public readonly string RepairSound = null;
 
-		[Desc("Cursor to show when hovering over a valid actor to repair.")]
+		[Desc("Cursor to display when hovering over a valid actor to repair.")]
 		public readonly string Cursor = "goldwrench";
 
-		[Desc("Cursor to show when target actor has full health so it can't be repaired.")]
+		[Desc("Cursor to display when target actor has full health so it can't be repaired.")]
 		public readonly string RepairBlockedCursor = "goldwrench-blocked";
 
 		public override object Create(ActorInitializer init) { return new EngineerRepair(init, this); }
@@ -108,11 +107,11 @@ namespace OpenRA.Mods.Common.Traits
 
 			public override bool CanTargetActor(Actor self, Actor target, TargetModifiers modifiers, ref string cursor)
 			{
-				var engineerRepairable = target.Info.TraitInfoOrDefault<EngineerRepairableInfo>();
-				if (engineerRepairable == null)
+				var engineerRepairable = target.TraitOrDefault<EngineerRepairable>();
+				if (engineerRepairable == null || engineerRepairable.IsTraitDisabled)
 					return false;
 
-				if (!engineerRepairable.Types.IsEmpty && !engineerRepairable.Types.Overlaps(info.Types))
+				if (!engineerRepairable.Info.Types.IsEmpty && !engineerRepairable.Info.Types.Overlaps(info.Types))
 					return false;
 
 				if (!info.ValidStances.HasStance(self.Owner.Stances[target.Owner]))
@@ -126,6 +125,10 @@ namespace OpenRA.Mods.Common.Traits
 
 			public override bool CanTargetFrozenActor(Actor self, FrozenActor target, TargetModifiers modifiers, ref string cursor)
 			{
+				// TODO: FrozenActors don't yet have a way of caching conditions, so we can't filter disabled traits
+				// This therefore assumes that all EngineerRepairable traits are enabled, which is probably wrong.
+				// Actors with FrozenUnderFog should therefore not disable the EngineerRepairable trait if
+				// ValidStances includes Enemy actors.
 				var engineerRepairable = target.Info.TraitInfoOrDefault<EngineerRepairableInfo>();
 				if (engineerRepairable == null)
 					return false;

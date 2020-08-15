@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,6 +10,7 @@
 #endregion
 
 using System.Collections.Generic;
+using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Cnc.Activities;
 using OpenRA.Mods.Common.Graphics;
@@ -20,7 +21,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
-	class PortableChronoInfo : ITraitInfo, Requires<IMoveInfo>
+	class PortableChronoInfo : TraitInfo, Requires<IMoveInfo>
 	{
 		[Desc("Cooldown in ticks until the unit can teleport.")]
 		public readonly int ChargeDelay = 500;
@@ -55,7 +56,7 @@ namespace OpenRA.Mods.Cnc.Traits
 		[VoiceReference]
 		public readonly string Voice = "Action";
 
-		public object Create(ActorInitializer init) { return new PortableChrono(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new PortableChrono(init.Self, this); }
 	}
 
 	class PortableChrono : IIssueOrder, IResolveOrder, ITick, ISelectionBar, IOrderVoice, ISync
@@ -118,7 +119,7 @@ namespace OpenRA.Mods.Cnc.Traits
 					self.QueueActivity(move.MoveWithinRange(order.Target, WDist.FromCells(maxDistance.Value), targetLineColor: Color.LawnGreen));
 
 				self.QueueActivity(new Teleport(self, cell, maxDistance, Info.KillCargo, Info.FlashScreen, Info.ChronoshiftSound));
-				self.QueueActivity(move.MoveTo(cell, 5, Color.LawnGreen));
+				self.QueueActivity(move.MoveTo(cell, 5, targetLineColor: Color.LawnGreen));
 				self.ShowTargetLines();
 			}
 		}
@@ -209,9 +210,9 @@ namespace OpenRA.Mods.Cnc.Traits
 			}
 		}
 
-		protected override void Tick(World world)
+		protected override void SelectionChanged(World world, IEnumerable<Actor> selected)
 		{
-			if (!self.IsInWorld || self.IsDead)
+			if (!selected.Contains(self))
 				world.CancelInputMode();
 		}
 

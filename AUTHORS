@@ -23,6 +23,7 @@ Previous developers included:
     * Tom Roostan (RoosterDragon)
 
 Also thanks to:
+    * abmyii
     * Adam Valy (Tschokky)
     * Akseli Virtanen (RAGEQUIT)
     * Alexander Fast (mizipzor)
@@ -136,6 +137,7 @@ Also thanks to:
     * Sebastien Kerguen (xanax)
     * Shawn Collins (UberWaffe)
     * Simon Verbeke (Saticmotion)
+    * Stuart McHattie (SDJMcHattie)
     * Taryn Hill (Phrohdoh)
     * Teemu Nieminen (Temeez)
     * Tim Mylemans (gecko)
@@ -146,6 +148,7 @@ Also thanks to:
     * Tristan Mühlbacher (MicroBit)
     * UnknownProgrammer
     * Vladimir Komarov (VrKomarov)
+    * Wojciech Walaszek (Voidwalker)
     * Wuschel
 
 Using GNU FreeFont distributed under the GNU GPL
@@ -158,12 +161,6 @@ Using FreeType distributed under the terms of the
 FreeType License.
 
 Using OpenAL Soft distributed under the GNU LGPL.
-
-Using MaxMind GeoIP2 .NET API distributed under
-the Apache 2.0 license.
-
-Using GeoLite2 data created by MaxMind and
-distributed under the CC BY-SA 3.0 license.
 
 Using SDL2-CS and OpenAL-CS created by Ethan
 Lee and released under the zlib license.
@@ -183,6 +180,15 @@ Krueger and distributed under the GNU GPL terms.
 
 Using rix0rrr.BeaconLib developed by Rico Huijbers
 distributed under MIT License.
+
+Using DiscordRichPresence developed by Lachee
+distributed under MIT License.
+
+Using Json.NET developed by James Newton-King
+distributed under MIT License.
+
+This site or product includes IP2Location LITE data
+available from http://www.ip2location.com.
 
 Finally, special thanks goes to the original teams
 at Westwood Studios and EA for creating the classic

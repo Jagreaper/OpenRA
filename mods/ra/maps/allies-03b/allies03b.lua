@@ -1,5 +1,5 @@
 --[[
-   Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+   Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
    This file is part of OpenRA, which is free software. It is made
    available to you under the terms of the GNU General Public License
    as published by the Free Software Foundation, either version 3 of
@@ -68,7 +68,7 @@ ProduceUnits = function(factory, count)
 end
 
 SetupAlliedUnits = function()
-	Tanya = Actor.Create(TanyaType, true, { Owner = player, Location = TanyaWaypoint.Location, Facing = 128 })
+	Tanya = Actor.Create(TanyaType, true, { Owner = player, Location = TanyaWaypoint.Location, Facing = Angle.South })
 
 	if TanyaType == "e7.noautotarget" then
 		Trigger.AfterDelay(DateTime.Seconds(2), function()
@@ -89,15 +89,17 @@ SetupTopRightIsland = function()
 	player.MarkCompletedObjective(FindAllies)
 	Media.PlaySpeechNotification(player, "AlliedReinforcementsArrived")
 	Reinforcements.Reinforce(player, AlliedIslandReinforcements, { AlliedIslandReinforcementsEntry.Location, IslandParadropReinforcementsDropzone.Location })
-	SendUSSRParadrops(128 + 52, IslandParadropReinforcementsDropzone)
+	SendUSSRParadrops(Angle.New(720), IslandParadropReinforcementsDropzone)
 end
 
 SendUSSRParadrops = function(facing, dropzone)
 	local paraproxy = Actor.Create("powerproxy.paratroopers", false, { Owner = ussr })
 
-	local units = paraproxy.SendParatroopers(dropzone.CenterPosition, false, facing)
-	Utils.Do(units, function(unit)
-		IdleHunt(unit)
+	local aircraft = paraproxy.TargetParatroopers(dropzone.CenterPosition, facing)
+	Utils.Do(aircraft, function(a)
+		Trigger.OnPassengerExited(a, function(t, p)
+			IdleHunt(p)
+		end)
 	end)
 
 	paraproxy.Destroy()
@@ -334,7 +336,7 @@ InitTriggers = function()
 		if a.Owner == player and a.Type ~= "jeep.mission" and not paradropsTriggered then
 			paradropsTriggered = true
 			Trigger.RemoveFootprintTrigger(id)
-			SendUSSRParadrops(54, ParadropReinforcementsDropzone)
+			SendUSSRParadrops(Angle.New(216), ParadropReinforcementsDropzone)
 		end
 	end)
 	Trigger.OnEnteredFootprint(ReinforcementsTriggerArea, function(a, id)

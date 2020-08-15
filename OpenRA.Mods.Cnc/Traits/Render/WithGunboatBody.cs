@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -46,11 +46,11 @@ namespace OpenRA.Mods.Cnc.Traits.Render
 		readonly IFacing facing;
 		readonly Turreted turret;
 
-		static Func<int> MakeTurretFacingFunc(Actor self)
+		static Func<WAngle> MakeTurretFacingFunc(Actor self)
 		{
 			// Turret artwork is baked into the sprite, so only the first turret makes sense.
 			var turreted = self.TraitsImplementing<Turreted>().FirstOrDefault();
-			return () => turreted.TurretFacing;
+			return () => turreted.WorldOrientation.Yaw;
 		}
 
 		public WithGunboatBody(ActorInitializer init, WithGunboatBodyInfo info)
@@ -76,7 +76,7 @@ namespace OpenRA.Mods.Cnc.Traits.Render
 
 		void ITick.Tick(Actor self)
 		{
-			if (facing.Facing <= 128)
+			if (facing.Facing.Angle <= 512)
 			{
 				var left = NormalizeSequence(self, info.LeftSequence);
 				if (DefaultAnimation.CurrentSequence.Name != left)

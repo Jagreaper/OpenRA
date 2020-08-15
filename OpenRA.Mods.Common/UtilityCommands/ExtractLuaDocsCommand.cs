@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -31,7 +31,11 @@ namespace OpenRA.Mods.Common.UtilityCommands
 			// HACK: The engine code assumes that Game.modData is set.
 			Game.ModData = utility.ModData;
 
-			Console.WriteLine("This is an automatically generated listing of the new Lua map scripting API, generated for {0} of OpenRA.", Game.ModData.Manifest.Metadata.Version);
+			var version = utility.ModData.Manifest.Metadata.Version;
+			if (args.Length > 1)
+				version = args[1];
+
+			Console.WriteLine("This is an automatically generated listing of the Lua map scripting API for version {0} of OpenRA.", version);
 			Console.WriteLine();
 			Console.WriteLine("OpenRA allows custom maps and missions to be scripted using Lua 5.1.\n" +
 				"These scripts run in a sandbox that prevents access to unsafe functions (e.g. OS or file access), " +
@@ -83,7 +87,7 @@ namespace OpenRA.Mods.Common.UtilityCommands
 				var category = catAttr != null ? catAttr.Category : "Unsorted";
 
 				var required = RequiredTraitNames(cg);
-				return ScriptMemberWrapper.WrappableMembers(cg).Select(mi => Tuple.Create(category, mi, required));
+				return ScriptMemberWrapper.WrappableMembers(cg).Select(mi => (category, mi, required));
 			}).GroupBy(g => g.Item1).OrderBy(g => g.Key);
 
 			foreach (var kv in actorCategories)
@@ -128,7 +132,7 @@ namespace OpenRA.Mods.Common.UtilityCommands
 				var category = catAttr != null ? catAttr.Category : "Unsorted";
 
 				var required = RequiredTraitNames(cg);
-				return ScriptMemberWrapper.WrappableMembers(cg).Select(mi => Tuple.Create(category, mi, required));
+				return ScriptMemberWrapper.WrappableMembers(cg).Select(mi => (category, mi, required));
 			}).GroupBy(g => g.Item1).OrderBy(g => g.Key);
 
 			foreach (var kv in playerCategories)

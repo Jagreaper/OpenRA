@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -74,7 +74,7 @@ namespace OpenRA.Mods.Common.Scripting
 		}
 
 		[Desc("Call a function when the actor is damaged. The callback " +
-			"function will be called as func(Actor self, Actor attacker).")]
+			"function will be called as func(Actor self, Actor attacker, int damage).")]
 		public void OnDamaged(Actor a, LuaFunction func)
 		{
 			GetScriptTriggers(a).RegisterCallback(Trigger.OnDamaged, func, Context);

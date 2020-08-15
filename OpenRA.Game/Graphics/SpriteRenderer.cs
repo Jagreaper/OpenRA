@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -107,7 +107,7 @@ namespace OpenRA.Graphics
 		internal void DrawSprite(Sprite s, float3 location, float paletteTextureIndex, float3 size)
 		{
 			var samplers = SetRenderStateForSprite(s);
-			Util.FastCreateQuad(vertices, location + s.FractionalOffset * size, s, samplers, paletteTextureIndex, nv, size);
+			Util.FastCreateQuad(vertices, location + s.FractionalOffset * size, s, samplers, paletteTextureIndex, nv, size, float3.Ones);
 			nv += 6;
 		}
 
@@ -124,7 +124,26 @@ namespace OpenRA.Graphics
 		public void DrawSprite(Sprite s, float3 a, float3 b, float3 c, float3 d)
 		{
 			var samplers = SetRenderStateForSprite(s);
-			Util.FastCreateQuad(vertices, a, b, c, d, s, samplers, 0, nv);
+			Util.FastCreateQuad(vertices, a, b, c, d, s, samplers, 0, float3.Ones, nv);
+			nv += 6;
+		}
+
+		internal void DrawSpriteWithTint(Sprite s, float3 location, float paletteTextureIndex, float3 size, float3 tint)
+		{
+			var samplers = SetRenderStateForSprite(s);
+			Util.FastCreateQuad(vertices, location + s.FractionalOffset * size, s, samplers, paletteTextureIndex, nv, size, tint);
+			nv += 6;
+		}
+
+		public void DrawSpriteWithTint(Sprite s, float3 location, PaletteReference pal, float3 size, float3 tint)
+		{
+			DrawSpriteWithTint(s, location, pal.TextureIndex, size, tint);
+		}
+
+		public void DrawSpriteWithTint(Sprite s, float3 a, float3 b, float3 c, float3 d, float3 tint)
+		{
+			var samplers = SetRenderStateForSprite(s);
+			Util.FastCreateQuad(vertices, a, b, c, d, s, samplers, 0, tint, nv);
 			nv += 6;
 		}
 
@@ -155,22 +174,27 @@ namespace OpenRA.Graphics
 			shader.SetTexture("Palette", palette);
 		}
 
-		public void SetViewportParams(Size screen, float depthScale, float depthOffset, float zoom, int2 scroll)
+		public void SetViewportParams(Size screen, float depthScale, float depthOffset, int2 scroll)
 		{
 			shader.SetVec("Scroll", scroll.X, scroll.Y, scroll.Y);
 			shader.SetVec("r1",
-				zoom * 2f / screen.Width,
-				zoom * 2f / screen.Height,
-				-depthScale * zoom / screen.Height);
+				2f / screen.Width,
+				2f / screen.Height,
+				-depthScale / screen.Height);
 			shader.SetVec("r2", -1, -1, 1 - depthOffset);
 
 			// Texture index is sampled as a float, so convert to pixels then scale
-			shader.SetVec("DepthTextureScale", 128 * depthScale * zoom / screen.Height);
+			shader.SetVec("DepthTextureScale", 128 * depthScale / screen.Height);
 		}
 
 		public void SetDepthPreviewEnabled(bool enabled)
 		{
 			shader.SetBool("EnableDepthPreview", enabled);
+		}
+
+		public void SetAntialiasingPixelsPerTexel(float pxPerTx)
+		{
+			shader.SetVec("AntialiasPixelsPerTexel", pxPerTx);
 		}
 	}
 }

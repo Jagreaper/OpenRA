@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -21,10 +21,10 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class RefineryInfo : IAcceptResourcesInfo, Requires<WithSpriteBodyInfo>
+	public class RefineryInfo : TraitInfo, Requires<WithSpriteBodyInfo>, IAcceptResourcesInfo
 	{
-		[Desc("Actual harvester facing when docking, 0-255 counter-clock-wise.")]
-		public readonly int DockAngle = 0;
+		[Desc("Actual harvester facing when docking.")]
+		public readonly WAngle DockAngle = WAngle.Zero;
 
 		[Desc("Docking cell relative to top-left cell.")]
 		public readonly CVec DockOffset = CVec.Zero;
@@ -49,7 +49,7 @@ namespace OpenRA.Mods.Common.Traits
 		public readonly int TickVelocity = 2;
 		public readonly int TickRate = 10;
 
-		public virtual object Create(ActorInitializer init) { return new Refinery(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new Refinery(init.Self, this); }
 	}
 
 	public class Refinery : INotifyCreated, ITick, IAcceptResources, INotifySold, INotifyCapture,
@@ -71,7 +71,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public bool AllowDocking { get { return !preventDock; } }
 		public CVec DeliveryOffset { get { return info.DockOffset; } }
-		public int DeliveryAngle { get { return info.DockAngle; } }
+		public WAngle DeliveryAngle { get { return info.DockAngle; } }
 		public bool IsDragRequired { get { return info.IsDragRequired; } }
 		public WVec DragOffset { get { return info.DragOffset; } }
 		public int DragLength { get { return info.DragLength; } }

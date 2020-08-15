@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -50,27 +50,30 @@ namespace OpenRA.Mods.Common.Traits
 
 		void ITick.Tick(Actor self)
 		{
-			var dat = self.World.Map.DistanceAboveTerrain(target.CenterPosition);
-			target = Target.FromPos(target.CenterPosition - new WVec(WDist.Zero, WDist.Zero, dat));
 			var wasInAttackRange = inAttackRange;
-			var wasFacingTarget = facingTarget;
-
 			inAttackRange = false;
 
-			facingTarget = TargetInFiringArc(self, target, info.FacingTolerance);
-
-			foreach (var a in Armaments)
+			if (self.IsInWorld)
 			{
-				if (!target.IsInRange(self.CenterPosition, a.MaxRange()))
-					continue;
+				var dat = self.World.Map.DistanceAboveTerrain(target.CenterPosition);
+				target = Target.FromPos(target.CenterPosition - new WVec(WDist.Zero, WDist.Zero, dat));
 
-				inAttackRange = true;
-				a.CheckFire(self, facing, target);
+				var wasFacingTarget = facingTarget;
+				facingTarget = TargetInFiringArc(self, target, 4 * info.FacingTolerance);
+
+				foreach (var a in Armaments)
+				{
+					if (!target.IsInRange(self.CenterPosition, a.MaxRange()))
+						continue;
+
+					inAttackRange = true;
+					a.CheckFire(self, facing, target);
+				}
+
+				// Actors without armaments may want to trigger an action when it passes the target
+				if (!Armaments.Any())
+					inAttackRange = !wasInAttackRange && !facingTarget && wasFacingTarget;
 			}
-
-			// Actors without armaments may want to trigger an action when it passes the target
-			if (!Armaments.Any())
-				inAttackRange = !wasInAttackRange && !facingTarget && wasFacingTarget;
 
 			if (inAttackRange && !wasInAttackRange)
 				OnEnteredAttackRange(self);
@@ -86,7 +89,7 @@ namespace OpenRA.Mods.Common.Traits
 			OnRemovedFromWorld(self);
 		}
 
-		public override Activity GetAttackActivity(Actor self, Target newTarget, bool allowMove, bool forceAttack, Color? targetLineColor)
+		public override Activity GetAttackActivity(Actor self, AttackSource source, Target newTarget, bool allowMove, bool forceAttack, Color? targetLineColor)
 		{
 			throw new NotImplementedException("AttackBomber requires a scripted target");
 		}

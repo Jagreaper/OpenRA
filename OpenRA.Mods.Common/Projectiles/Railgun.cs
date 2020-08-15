@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -25,8 +25,11 @@ namespace OpenRA.Mods.Common.Projectiles
 		[Desc("Damage all units hit by the beam instead of just the target?")]
 		public readonly bool DamageActorsInLine = false;
 
-		[Desc("Maximum offset at the maximum range.")]
+		[Desc("The maximum/constant/incremental inaccuracy used in conjunction with the InaccuracyType property.")]
 		public readonly WDist Inaccuracy = WDist.Zero;
+
+		[Desc("Controls the way inaccuracy is calculated. Possible values are 'Maximum' - scale from 0 to max with range, 'PerCellIncrement' - scale from 0 with range and 'Absolute' - use set value regardless of range.")]
+		public readonly InaccuracyType InaccuracyType = InaccuracyType.Maximum;
 
 		[Desc("Can this projectile be blocked when hitting actors with an IBlocksProjectiles trait.")]
 		public readonly bool Blockable = false;
@@ -98,7 +101,7 @@ namespace OpenRA.Mods.Common.Projectiles
 		}
 	}
 
-	public class Railgun : IProjectile
+	public class Railgun : IProjectile, ISync
 	{
 		readonly ProjectileArgs args;
 		readonly RailgunInfo info;
@@ -108,6 +111,8 @@ namespace OpenRA.Mods.Common.Projectiles
 
 		int ticks;
 		bool animationComplete;
+
+		[Sync]
 		WPos target;
 
 		// Computing these in Railgun instead of RailgunRenderable saves Info.Duration ticks of computation.
@@ -127,6 +132,12 @@ namespace OpenRA.Mods.Common.Projectiles
 
 			BeamColor = beamColor;
 			HelixColor = helixColor;
+
+			if (info.Inaccuracy.Length > 0)
+			{
+				var maxInaccuracyOffset = Util.GetProjectileInaccuracy(info.Inaccuracy.Length, info.InaccuracyType, args);
+				target += WVec.FromPDF(args.SourceActor.World.SharedRandom, 2) * maxInaccuracyOffset / 1024;
+			}
 
 			if (!string.IsNullOrEmpty(info.HitAnim))
 				hitanim = new Animation(args.SourceActor.World, info.HitAnim);
@@ -188,12 +199,32 @@ namespace OpenRA.Mods.Common.Projectiles
 					animationComplete = true;
 
 				if (!info.DamageActorsInLine)
-					args.Weapon.Impact(Target.FromPos(target), args.SourceActor, args.DamageModifiers);
+				{
+					var warheadArgs = new WarheadArgs(args)
+					{
+						ImpactOrientation = new WRot(WAngle.Zero, Util.GetVerticalAngle(args.Source, target), args.Facing),
+						ImpactPosition = target,
+					};
+
+					args.Weapon.Impact(Target.FromPos(target), warheadArgs);
+				}
 				else
 				{
 					var actors = world.FindActorsOnLine(args.Source, target, info.BeamWidth);
 					foreach (var a in actors)
-						args.Weapon.Impact(Target.FromActor(a), args.SourceActor, args.DamageModifiers);
+					{
+						var warheadArgs = new WarheadArgs(args)
+						{
+							ImpactOrientation = new WRot(WAngle.Zero, Util.GetVerticalAngle(args.Source, target), args.Facing),
+
+							// Calculating an impact position is bogus for line damage.
+							// FindActorsOnLine guarantees that the beam touches the target's HitShape,
+							// so we just assume a center hit to avoid bogus warhead recalculations.
+							ImpactPosition = a.CenterPosition,
+						};
+
+						args.Weapon.Impact(Target.FromActor(a), warheadArgs);
+					}
 				}
 			}
 

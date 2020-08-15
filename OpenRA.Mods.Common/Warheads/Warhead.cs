@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -9,7 +9,7 @@
  */
 #endregion
 
-using System.Collections.Generic;
+using OpenRA.GameRules;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -45,6 +45,9 @@ namespace OpenRA.Mods.Common.Warheads
 		[Desc("Can this warhead affect the actor that fired it.")]
 		public readonly bool AffectsParent = false;
 
+		[Desc("If impact is above this altitude, warheads that would affect terrain ignore terrain target types (and either do nothing or perform their own checks).")]
+		public readonly WDist AirThreshold = new WDist(128);
+
 		[Desc("Delay in ticks before applying the warhead effect.", "0 = instant (old model).")]
 		public readonly int Delay = 0;
 
@@ -53,13 +56,13 @@ namespace OpenRA.Mods.Common.Warheads
 		[Desc("The color used for this warhead's visualization in the world's `WarheadDebugOverlay` trait.")]
 		public readonly Color DebugOverlayColor = Color.Red;
 
-		public bool IsValidTarget(BitSet<TargetableType> targetTypes)
+		protected bool IsValidTarget(BitSet<TargetableType> targetTypes)
 		{
 			return ValidTargets.Overlaps(targetTypes) && !InvalidTargets.Overlaps(targetTypes);
 		}
 
 		/// <summary>Applies the warhead's effect against the target.</summary>
-		public abstract void DoImpact(Target target, Actor firedBy, IEnumerable<int> damageModifiers);
+		public abstract void DoImpact(Target target, WarheadArgs args);
 
 		/// <summary>Checks if the warhead is valid against (can do something to) the actor.</summary>
 		public virtual bool IsValidAgainst(Actor victim, Actor firedBy)

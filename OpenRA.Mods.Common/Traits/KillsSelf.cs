@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -35,7 +35,6 @@ namespace OpenRA.Mods.Common.Traits
 	class KillsSelf : ConditionalTrait<KillsSelfInfo>, INotifyAddedToWorld, ITick
 	{
 		int lifetime;
-		ConditionManager conditionManager;
 
 		public KillsSelf(Actor self, KillsSelfInfo info)
 			: base(info)
@@ -48,13 +47,7 @@ namespace OpenRA.Mods.Common.Traits
 			// Actors can be created without being added to the world
 			// We want to make sure that this only triggers once they are inserted into the world
 			if (lifetime == 0 && self.IsInWorld)
-				Kill(self);
-		}
-
-		protected override void Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-			base.Created(self);
+				self.World.AddFrameEndTask(w => Kill(self));
 		}
 
 		void INotifyAddedToWorld.AddedToWorld(Actor self)
@@ -72,7 +65,7 @@ namespace OpenRA.Mods.Common.Traits
 				return;
 
 			if (lifetime-- <= 0)
-				Kill(self);
+				self.World.AddFrameEndTask(w => Kill(self));
 		}
 
 		void Kill(Actor self)
@@ -80,8 +73,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (self.IsDead)
 				return;
 
-			if (conditionManager != null && !string.IsNullOrEmpty(Info.GrantsCondition))
-				conditionManager.GrantCondition(self, Info.GrantsCondition);
+			self.GrantCondition(Info.GrantsCondition);
 
 			if (Info.RemoveInstead || !self.Info.HasTraitInfo<IHealthInfo>())
 				self.Dispose();

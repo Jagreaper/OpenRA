@@ -18,15 +18,16 @@ SS:
 	Armor:
 		Type: Light
 	Mobile:
-		TurnSpeed: 4
+		TurnSpeed: 16
 		Speed: 71
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 8c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
 		Range: 5c0
 	Targetable:
-		TargetTypes: Ground, Water, Ship, Submarine, Repair
+		TargetTypes: WaterActor, Ship, Submarine, Repair
 		RequiresCondition: !underwater
 	Targetable@UNDERWATER:
 		TargetTypes: Underwater, Submarine
@@ -48,14 +49,11 @@ SS:
 		LocalOffset: 0,-171,0, 0,171,0
 		FireDelay: 2
 	AttackFrontal:
-	SelectionDecorations:
-	AutoTarget:
-		InitialStance: HoldFire
-		InitialStanceAI: ReturnFire
 	AutoTargetPriority@DEFAULT:
-		ValidTargets: Water, Underwater
+		ValidTargets: WaterActor, Underwater
+		InvalidTargets: NoAutoTarget, Structure
 	AutoTargetPriority@ATTACKANYTHING:
-		ValidTargets: Water, Underwater
+		ValidTargets: WaterActor, Underwater
 	DetectCloaked:
 		CloakTypes: Underwater
 		Range: 4c0
@@ -87,15 +85,16 @@ MSUB:
 	Armor:
 		Type: Light
 	Mobile:
-		TurnSpeed: 3
+		TurnSpeed: 12
 		Speed: 42
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 8c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
 		Range: 5c0
 	Targetable:
-		TargetTypes: Ground, Water, Ship, Submarine, Repair
+		TargetTypes: WaterActor, Ship, Submarine, Repair
 		RequiresCondition: !underwater
 	Targetable@UNDERWATER:
 		TargetTypes: Underwater, Submarine
@@ -123,7 +122,6 @@ MSUB:
 	AttackFrontal:
 		TargetFrozenActors: True
 		ForceFireIgnoresActors: True
-	SelectionDecorations:
 	AutoTarget:
 		InitialStance: HoldFire
 		InitialStanceAI: ReturnFire
@@ -158,15 +156,16 @@ DD:
 	Armor:
 		Type: Heavy
 	Mobile:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Speed: 85
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 6c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
 		Range: 5c0
 	Turreted:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Offset: 469,0,128
 	Armament@PRIMARY:
 		Weapon: Stinger
@@ -181,7 +180,6 @@ DD:
 		LocalOffset: 0,-100,0, 0,100,0
 		LocalYaw: 64, -64
 	AttackTurreted:
-	SelectionDecorations:
 	WithSpriteTurret:
 	DetectCloaked:
 		CloakTypes: Underwater
@@ -210,9 +208,10 @@ CA:
 	Armor:
 		Type: Heavy
 	Mobile:
-		TurnSpeed: 3
+		TurnSpeed: 12
 		Speed: 42
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 7c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
@@ -220,11 +219,11 @@ CA:
 	Turreted@PRIMARY:
 		Turret: primary
 		Offset: -896,0,128
-		TurnSpeed: 3
+		TurnSpeed: 12
 	Turreted@SECONDARY:
 		Turret: secondary
 		Offset: 768,0,128
-		TurnSpeed: 3
+		TurnSpeed: 12
 	Armament@PRIMARY:
 		Turret: primary
 		Weapon: 8Inch
@@ -245,7 +244,6 @@ CA:
 		TargetFrozenActors: True
 		ForceFireIgnoresActors: True
 	WithMuzzleOverlay:
-	SelectionDecorations:
 	WithSpriteTurret@PRIMARY:
 		Turret: primary
 	WithSpriteTurret@SECONDARY:
@@ -255,6 +253,7 @@ CA:
 
 LST:
 	Inherits: ^Ship
+	Inherits@CARGOPIPS: ^CargoPips
 	Buildable:
 		Queue: Ship
 		BuildPaletteOrder: 10
@@ -275,17 +274,16 @@ LST:
 		Speed: 113
 		PauseOnCondition: notmobile
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 6c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
 		Range: 5c0
-	SelectionDecorations:
 	WithLandingCraftAnimation:
 		OpenTerrainTypes: Clear, Rough, Road, Ore, Gems, Beach
 	Cargo:
 		Types: Infantry, Vehicle
 		MaxWeight: 5
-		PipCount: 5
 		PassengerFacing: 0
 		LoadingCondition: notmobile
 	-Chronoshiftable:
@@ -312,15 +310,16 @@ PT:
 	Armor:
 		Type: Heavy
 	Mobile:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Speed: 128
 	RevealsShroud:
+		MinRange: 5c0
 		Range: 7c0
 		RevealGeneratedShroud: False
 	RevealsShroud@GAPGEN:
 		Range: 5c0
 	Turreted:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Offset: 512,0,0
 	Armament@PRIMARY:
 		Weapon: 2Inch
@@ -332,7 +331,6 @@ PT:
 		MuzzleSequence: muzzle
 	AttackTurreted:
 	WithMuzzleOverlay:
-	SelectionDecorations:
 	WithSpriteTurret:
 	DetectCloaked:
 		CloakTypes: Underwater

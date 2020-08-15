@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using OpenRA.Activities;
 using OpenRA.Graphics;
 using OpenRA.Primitives;
 using OpenRA.Traits;
@@ -53,7 +52,7 @@ namespace OpenRA.Mods.Common.Traits
 		public readonly string CloakSound = null;
 		public readonly string UncloakSound = null;
 
-		[PaletteReference("IsPlayerPalette")]
+		[PaletteReference(nameof(IsPlayerPalette))]
 		public readonly string Palette = "cloak";
 		public readonly bool IsPlayerPalette = false;
 
@@ -73,13 +72,12 @@ namespace OpenRA.Mods.Common.Traits
 		int remainingTime;
 
 		bool isDocking;
-		ConditionManager conditionManager;
 		Cloak[] otherCloaks;
 
 		CPos? lastPos;
 		bool wasCloaked = false;
 		bool firstTick = true;
-		int cloakedToken = ConditionManager.InvalidConditionToken;
+		int cloakedToken = Actor.InvalidConditionToken;
 
 		public Cloak(CloakInfo info)
 			: base(info)
@@ -89,7 +87,6 @@ namespace OpenRA.Mods.Common.Traits
 
 		protected override void Created(Actor self)
 		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
 			otherCloaks = self.TraitsImplementing<Cloak>()
 				.Where(c => c != this)
 				.ToArray();
@@ -97,8 +94,8 @@ namespace OpenRA.Mods.Common.Traits
 			if (Cloaked)
 			{
 				wasCloaked = true;
-				if (conditionManager != null && cloakedToken == ConditionManager.InvalidConditionToken && !string.IsNullOrEmpty(Info.CloakedCondition))
-					cloakedToken = conditionManager.GrantCondition(self, Info.CloakedCondition);
+				if (cloakedToken == Actor.InvalidConditionToken)
+					cloakedToken = self.GrantCondition(Info.CloakedCondition);
 			}
 
 			base.Created(self);
@@ -165,8 +162,8 @@ namespace OpenRA.Mods.Common.Traits
 			var isCloaked = Cloaked;
 			if (isCloaked && !wasCloaked)
 			{
-				if (conditionManager != null && cloakedToken == ConditionManager.InvalidConditionToken && !string.IsNullOrEmpty(Info.CloakedCondition))
-					cloakedToken = conditionManager.GrantCondition(self, Info.CloakedCondition);
+				if (cloakedToken == Actor.InvalidConditionToken)
+					cloakedToken = self.GrantCondition(Info.CloakedCondition);
 
 				// Sounds shouldn't play if the actor starts cloaked
 				if (!(firstTick && Info.InitialDelay == 0) && !otherCloaks.Any(a => a.Cloaked))
@@ -174,8 +171,8 @@ namespace OpenRA.Mods.Common.Traits
 			}
 			else if (!isCloaked && wasCloaked)
 			{
-				if (cloakedToken != ConditionManager.InvalidConditionToken)
-					cloakedToken = conditionManager.RevokeCondition(self, cloakedToken);
+				if (cloakedToken != Actor.InvalidConditionToken)
+					cloakedToken = self.RevokeCondition(cloakedToken);
 
 				if (!(firstTick && Info.InitialDelay == 0) && !otherCloaks.Any(a => a.Cloaked))
 					Game.Sound.Play(SoundType.World, Info.UncloakSound, self.CenterPosition);

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -17,7 +17,7 @@ using OpenRA.Primitives;
 
 namespace OpenRA.Mods.Common.Graphics
 {
-	public struct ModelRenderable : IRenderable
+	public struct ModelRenderable : IRenderable, ITintableRenderable
 	{
 		readonly IEnumerable<ModelAnimation> models;
 		readonly WPos pos;
@@ -30,11 +30,22 @@ namespace OpenRA.Mods.Common.Graphics
 		readonly PaletteReference normalsPalette;
 		readonly PaletteReference shadowPalette;
 		readonly float scale;
+		readonly float3 tint;
 
 		public ModelRenderable(
 			IEnumerable<ModelAnimation> models, WPos pos, int zOffset, WRot camera, float scale,
 			WRot lightSource, float[] lightAmbientColor, float[] lightDiffuseColor,
 			PaletteReference color, PaletteReference normals, PaletteReference shadow)
+			: this(models, pos, zOffset, camera, scale,
+				lightSource, lightAmbientColor, lightDiffuseColor,
+				color, normals, shadow,
+				float3.Ones) { }
+
+		public ModelRenderable(
+			IEnumerable<ModelAnimation> models, WPos pos, int zOffset, WRot camera, float scale,
+			WRot lightSource, float[] lightAmbientColor, float[] lightDiffuseColor,
+			PaletteReference color, PaletteReference normals, PaletteReference shadow,
+			float3 tint)
 		{
 			this.models = models;
 			this.pos = pos;
@@ -47,6 +58,7 @@ namespace OpenRA.Mods.Common.Graphics
 			palette = color;
 			normalsPalette = normals;
 			shadowPalette = shadow;
+			this.tint = tint;
 		}
 
 		public WPos Pos { get { return pos; } }
@@ -59,7 +71,7 @@ namespace OpenRA.Mods.Common.Graphics
 			return new ModelRenderable(
 				models, pos, zOffset, camera, scale,
 				lightSource, lightAmbientColor, lightDiffuseColor,
-				newPalette, normalsPalette, shadowPalette);
+				newPalette, normalsPalette, shadowPalette, tint);
 		}
 
 		public IRenderable WithZOffset(int newOffset)
@@ -67,7 +79,7 @@ namespace OpenRA.Mods.Common.Graphics
 			return new ModelRenderable(
 				models, pos, newOffset, camera, scale,
 				lightSource, lightAmbientColor, lightDiffuseColor,
-				palette, normalsPalette, shadowPalette);
+				palette, normalsPalette, shadowPalette, tint);
 		}
 
 		public IRenderable OffsetBy(WVec vec)
@@ -75,10 +87,18 @@ namespace OpenRA.Mods.Common.Graphics
 			return new ModelRenderable(
 				models, pos + vec, zOffset, camera, scale,
 				lightSource, lightAmbientColor, lightDiffuseColor,
-				palette, normalsPalette, shadowPalette);
+				palette, normalsPalette, shadowPalette, tint);
 		}
 
 		public IRenderable AsDecoration() { return this; }
+
+		public IRenderable WithTint(float3 newTint)
+		{
+			return new ModelRenderable(
+				models, pos, zOffset, camera, scale,
+				lightSource, lightAmbientColor, lightDiffuseColor,
+				palette, normalsPalette, shadowPalette, newTint);
+		}
 
 		// This will need generalizing once we support TS/RA2 terrain
 		static readonly float[] GroundNormal = new float[] { 0, 0, 1, 1 };
@@ -113,7 +133,7 @@ namespace OpenRA.Mods.Common.Graphics
 
 				// HACK: We don't have enough texture channels to pass the depth data to the shader
 				// so for now just offset everything forward so that the back corner is rendered at pos.
-				pxOrigin -= new float3(0, 0, Screen3DBounds(wr).Second.X);
+				pxOrigin -= new float3(0, 0, Screen3DBounds(wr).Z.X);
 
 				var shadowOrigin = pxOrigin - groundZ * (new float2(renderProxy.ShadowDirection, 1));
 
@@ -122,8 +142,14 @@ namespace OpenRA.Mods.Common.Graphics
 				var sb = shadowOrigin + psb[2];
 				var sc = shadowOrigin + psb[1];
 				var sd = shadowOrigin + psb[3];
-				Game.Renderer.WorldRgbaSpriteRenderer.DrawSprite(renderProxy.ShadowSprite, sa, sb, sc, sd);
-				Game.Renderer.WorldRgbaSpriteRenderer.DrawSprite(renderProxy.Sprite, pxOrigin - 0.5f * renderProxy.Sprite.Size);
+
+				var wrsr = Game.Renderer.WorldRgbaSpriteRenderer;
+				var t = model.tint;
+				if (wr.TerrainLighting != null)
+					t *= wr.TerrainLighting.TintAt(model.pos);
+
+				wrsr.DrawSpriteWithTint(renderProxy.ShadowSprite, sa, sb, sc, sd, t);
+				wrsr.DrawSpriteWithTint(renderProxy.Sprite, pxOrigin - 0.5f * renderProxy.Sprite.Size, renderProxy.Sprite.Size, t);
 			}
 
 			public void RenderDebugGeometry(WorldRenderer wr)
@@ -132,23 +158,22 @@ namespace OpenRA.Mods.Common.Graphics
 				var groundZ = wr.World.Map.Grid.TileSize.Height * (groundPos.Z - model.pos.Z) / 1024f;
 				var pxOrigin = wr.Screen3DPosition(model.pos);
 				var shadowOrigin = pxOrigin - groundZ * (new float2(renderProxy.ShadowDirection, 1));
-				var iz = 1 / wr.Viewport.Zoom;
 
 				// Draw sprite rect
 				var offset = pxOrigin + renderProxy.Sprite.Offset - 0.5f * renderProxy.Sprite.Size;
-				Game.Renderer.WorldRgbaColorRenderer.DrawRect(offset.XY, (offset + renderProxy.Sprite.Size).XY, iz, Color.Red);
+				Game.Renderer.WorldRgbaColorRenderer.DrawRect(offset.XY, (offset + renderProxy.Sprite.Size).XY, 1, Color.Red);
 
 				// Draw transformed shadow sprite rect
 				var c = Color.Purple;
 				var psb = renderProxy.ProjectedShadowBounds;
 
-				Game.Renderer.WorldRgbaColorRenderer.DrawPolygon(new[]
+				Game.Renderer.RgbaColorRenderer.DrawPolygon(new float2[]
 				{
-					shadowOrigin + psb[1],
-					shadowOrigin + psb[3],
-					shadowOrigin + psb[0],
-					shadowOrigin + psb[2]
-				}, iz, c);
+					wr.Viewport.WorldToViewPx(shadowOrigin + psb[1]),
+					wr.Viewport.WorldToViewPx(shadowOrigin + psb[3]),
+					wr.Viewport.WorldToViewPx(shadowOrigin + psb[0]),
+					wr.Viewport.WorldToViewPx(shadowOrigin + psb[2])
+				}, 1, c);
 
 				// Draw bounding box
 				var draw = model.models.Where(v => v.IsVisible);
@@ -158,48 +183,48 @@ namespace OpenRA.Mods.Common.Graphics
 				foreach (var v in draw)
 				{
 					var bounds = v.Model.Bounds(v.FrameFunc());
-					var worldTransform = v.RotationFunc().Reverse().Aggregate(scaleTransform,
-						(x, y) => OpenRA.Graphics.Util.MatrixMultiply(x, OpenRA.Graphics.Util.MakeFloatMatrix(y.AsMatrix())));
+					var rotation = OpenRA.Graphics.Util.MakeFloatMatrix(v.RotationFunc().AsMatrix());
+					var worldTransform = OpenRA.Graphics.Util.MatrixMultiply(scaleTransform, rotation);
 
 					var pxPos = pxOrigin + wr.ScreenVectorComponents(v.OffsetFunc());
 					var screenTransform = OpenRA.Graphics.Util.MatrixMultiply(cameraTransform, worldTransform);
-					DrawBoundsBox(pxPos, screenTransform, bounds, iz, Color.Yellow);
+					DrawBoundsBox(wr, pxPos, screenTransform, bounds, 1, Color.Yellow);
 				}
 			}
 
 			static readonly uint[] CornerXIndex = new uint[] { 0, 0, 0, 0, 3, 3, 3, 3 };
 			static readonly uint[] CornerYIndex = new uint[] { 1, 1, 4, 4, 1, 1, 4, 4 };
 			static readonly uint[] CornerZIndex = new uint[] { 2, 5, 2, 5, 2, 5, 2, 5 };
-			static void DrawBoundsBox(float3 pxPos, float[] transform, float[] bounds, float width, Color c)
+			static void DrawBoundsBox(WorldRenderer wr, float3 pxPos, float[] transform, float[] bounds, float width, Color c)
 			{
-				var wcr = Game.Renderer.WorldRgbaColorRenderer;
-				var corners = new float3[8];
+				var cr = Game.Renderer.RgbaColorRenderer;
+				var corners = new float2[8];
 				for (var i = 0; i < 8; i++)
 				{
-					var vec = new float[] { bounds[CornerXIndex[i]], bounds[CornerYIndex[i]], bounds[CornerZIndex[i]], 1 };
+					var vec = new[] { bounds[CornerXIndex[i]], bounds[CornerYIndex[i]], bounds[CornerZIndex[i]], 1 };
 					var screen = OpenRA.Graphics.Util.MatrixVectorMultiply(transform, vec);
-					corners[i] = pxPos + new float3(screen[0], screen[1], screen[2]);
+					corners[i] = wr.Viewport.WorldToViewPx(pxPos + new float3(screen[0], screen[1], screen[2]));
 				}
 
 				// Front face
-				wcr.DrawPolygon(new[] { corners[0], corners[1], corners[3], corners[2] }, width, c);
+				cr.DrawPolygon(new[] { corners[0], corners[1], corners[3], corners[2] }, width, c);
 
 				// Back face
-				wcr.DrawPolygon(new[] { corners[4], corners[5], corners[7], corners[6] }, width, c);
+				cr.DrawPolygon(new[] { corners[4], corners[5], corners[7], corners[6] }, width, c);
 
 				// Horizontal edges
-				wcr.DrawLine(corners[0], corners[4], width, c);
-				wcr.DrawLine(corners[1], corners[5], width, c);
-				wcr.DrawLine(corners[2], corners[6], width, c);
-				wcr.DrawLine(corners[3], corners[7], width, c);
+				cr.DrawLine(corners[0], corners[4], width, c);
+				cr.DrawLine(corners[1], corners[5], width, c);
+				cr.DrawLine(corners[2], corners[6], width, c);
+				cr.DrawLine(corners[3], corners[7], width, c);
 			}
 
 			public Rectangle ScreenBounds(WorldRenderer wr)
 			{
-				return Screen3DBounds(wr).First;
+				return Screen3DBounds(wr).Bounds;
 			}
 
-			Pair<Rectangle, float2> Screen3DBounds(WorldRenderer wr)
+			(Rectangle Bounds, float2 Z) Screen3DBounds(WorldRenderer wr)
 			{
 				var pxOrigin = wr.ScreenPosition(model.pos);
 				var draw = model.models.Where(v => v.IsVisible);
@@ -216,8 +241,8 @@ namespace OpenRA.Mods.Common.Graphics
 				foreach (var v in draw)
 				{
 					var bounds = v.Model.Bounds(v.FrameFunc());
-					var worldTransform = v.RotationFunc().Reverse().Aggregate(scaleTransform,
-						(x, y) => OpenRA.Graphics.Util.MatrixMultiply(x, OpenRA.Graphics.Util.MakeFloatMatrix(y.AsMatrix())));
+					var rotation = OpenRA.Graphics.Util.MakeFloatMatrix(v.RotationFunc().AsMatrix());
+					var worldTransform = OpenRA.Graphics.Util.MatrixMultiply(scaleTransform, rotation);
 
 					var pxPos = pxOrigin + wr.ScreenVectorComponents(v.OffsetFunc());
 					var screenTransform = OpenRA.Graphics.Util.MatrixMultiply(cameraTransform, worldTransform);
@@ -235,7 +260,7 @@ namespace OpenRA.Mods.Common.Graphics
 					}
 				}
 
-				return Pair.New(Rectangle.FromLTRB((int)minX, (int)minY, (int)maxX, (int)maxY), new float2(minZ, maxZ));
+				return (Rectangle.FromLTRB((int)minX, (int)minY, (int)maxX, (int)maxY), new float2(minZ, maxZ));
 			}
 		}
 	}

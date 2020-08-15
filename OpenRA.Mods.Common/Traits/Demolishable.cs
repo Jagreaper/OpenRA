@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -16,7 +16,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Handle demolitions from C4 explosives.")]
-	public class DemolishableInfo : ConditionalTraitInfo, IDemolishableInfo, ITraitInfo
+	public class DemolishableInfo : ConditionalTraitInfo, IDemolishableInfo
 	{
 		public bool IsValidTarget(ActorInfo actorInfo, Actor saboteur) { return true; }
 
@@ -43,18 +43,11 @@ namespace OpenRA.Mods.Common.Traits
 			}
 		}
 
-		ConditionManager conditionManager;
 		List<DemolishAction> actions = new List<DemolishAction>();
 		List<DemolishAction> removeActions = new List<DemolishAction>();
 
 		public Demolishable(DemolishableInfo info)
 			: base(info) { }
-
-		protected override void Created(Actor self)
-		{
-			base.Created(self);
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-		}
 
 		bool IDemolishable.IsValidTarget(Actor self, Actor saboteur)
 		{
@@ -66,10 +59,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (IsTraitDisabled)
 				return;
 
-			var token = ConditionManager.InvalidConditionToken;
-			if (conditionManager != null && !string.IsNullOrEmpty(Info.Condition))
-				token = conditionManager.GrantCondition(self, Info.Condition);
-
+			var token = self.GrantCondition(Info.Condition);
 			actions.Add(new DemolishAction(saboteur, delay, token));
 		}
 
@@ -88,9 +78,9 @@ namespace OpenRA.Mods.Common.Traits
 
 					if (Util.ApplyPercentageModifiers(100, modifiers) > 0)
 						self.Kill(a.Saboteur);
-					else if (a.Token != ConditionManager.InvalidConditionToken)
+					else if (a.Token != Actor.InvalidConditionToken)
 					{
-						conditionManager.RevokeCondition(self, a.Token);
+						self.RevokeCondition(a.Token);
 						removeActions.Add(a);
 					}
 				}

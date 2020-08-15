@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,9 +15,9 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class TerrainRendererInfo : ITraitInfo
+	public class TerrainRendererInfo : TraitInfo
 	{
-		public object Create(ActorInitializer init) { return new TerrainRenderer(init.World); }
+		public override object Create(ActorInitializer init) { return new TerrainRenderer(init.World); }
 	}
 
 	public sealed class TerrainRenderer : IRenderTerrain, IWorldLoaded, INotifyActorDisposing
@@ -59,7 +59,7 @@ namespace OpenRA.Mods.Common.Traits
 
 			var sprite = theater.TileSprite(tile);
 			foreach (var kv in spriteLayers)
-				kv.Value.Update(cell, palette == kv.Key ? sprite : null);
+				kv.Value.Update(cell, palette == kv.Key ? sprite : null, false);
 		}
 
 		void IRenderTerrain.RenderTerrain(WorldRenderer wr, Viewport viewport)

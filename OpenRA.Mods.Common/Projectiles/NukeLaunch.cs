@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,6 @@ using System.Linq;
 using OpenRA.Effects;
 using OpenRA.GameRules;
 using OpenRA.Graphics;
-using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Effects
@@ -27,7 +26,6 @@ namespace OpenRA.Mods.Common.Effects
 		readonly string weaponPalette;
 		readonly string upSequence;
 		readonly string downSequence;
-		readonly string flashType;
 
 		readonly WPos ascendSource;
 		readonly WPos ascendTarget;
@@ -51,7 +49,7 @@ namespace OpenRA.Mods.Common.Effects
 
 		public NukeLaunch(Player firedBy, string name, WeaponInfo weapon, string weaponPalette, string upSequence, string downSequence,
 			WPos launchPos, WPos targetPos, WDist detonationAltitude, bool removeOnDetonation, WDist velocity, int launchDelay, int impactDelay,
-			bool skipAscent, string flashType,
+			bool skipAscent,
 			string trailImage, string[] trailSequences, string trailPalette, bool trailUsePlayerPalette, int trailDelay, int trailInterval)
 		{
 			this.firedBy = firedBy;
@@ -62,12 +60,11 @@ namespace OpenRA.Mods.Common.Effects
 			this.launchDelay = launchDelay;
 			this.impactDelay = impactDelay;
 			turn = skipAscent ? 0 : impactDelay / 2;
-			this.flashType = flashType;
 			this.trailImage = trailImage;
 			this.trailSequences = trailSequences;
 			this.trailPalette = trailPalette;
 			if (trailUsePlayerPalette)
-				trailPalette += firedBy.InternalName;
+				this.trailPalette += firedBy.InternalName;
 
 			this.trailInterval = trailInterval;
 			this.trailDelay = trailDelay;
@@ -140,12 +137,16 @@ namespace OpenRA.Mods.Common.Effects
 			if (detonated)
 				return;
 
-			weapon.Impact(Target.FromPos(pos), firedBy.PlayerActor, Enumerable.Empty<int>());
-			world.WorldActor.Trait<ScreenShaker>().AddEffect(20, pos, 5);
+			var target = Target.FromPos(pos);
+			var warheadArgs = new WarheadArgs
+			{
+				Weapon = weapon,
+				Source = target.CenterPosition,
+				SourceActor = firedBy.PlayerActor,
+				WeaponTarget = target
+			};
 
-			foreach (var flash in world.WorldActor.TraitsImplementing<FlashPaletteEffect>())
-				if (flash.Info.Type == flashType)
-					flash.Enable(-1);
+			weapon.Impact(target, warheadArgs);
 
 			detonated = true;
 		}

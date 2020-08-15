@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -17,7 +17,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Fades the world from/to black at the start/end of the game, and can (optionally) desaturate the world")]
-	public class MenuPaletteEffectInfo : ITraitInfo
+	public class MenuPaletteEffectInfo : TraitInfo
 	{
 		[Desc("Time (in ticks) to fade between states")]
 		public readonly int FadeLength = 10;
@@ -28,7 +28,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Effect style to fade to when opening the in-game menu. Accepts values of None, Black or Desaturated.")]
 		public readonly MenuPaletteEffect.EffectType MenuEffect = MenuPaletteEffect.EffectType.None;
 
-		public object Create(ActorInitializer init) { return new MenuPaletteEffect(this); }
+		public override object Create(ActorInitializer init) { return new MenuPaletteEffect(this); }
 	}
 
 	public class MenuPaletteEffect : IPaletteModifier, IRender, IWorldLoaded, INotifyGameLoaded

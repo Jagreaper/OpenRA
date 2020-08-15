@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits.Sound
 {
 	[Desc("Play the Kill voice of this actor when eliminating enemies.")]
-	public class AnnounceOnKillInfo : ITraitInfo
+	public class AnnounceOnKillInfo : TraitInfo
 	{
 		[Desc("Minimum duration (in seconds) between sound events.")]
 		public readonly int Interval = 5;
@@ -23,7 +23,7 @@ namespace OpenRA.Mods.Common.Traits.Sound
 		[Desc("Voice to use when killing something.")]
 		public readonly string Voice = "Kill";
 
-		public object Create(ActorInitializer init) { return new AnnounceOnKill(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new AnnounceOnKill(init.Self, this); }
 	}
 
 	public class AnnounceOnKill : INotifyAppliedDamage

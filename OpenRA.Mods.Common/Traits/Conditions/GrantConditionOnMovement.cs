@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -29,8 +29,7 @@ namespace OpenRA.Mods.Common.Traits
 	public class GrantConditionOnMovement : ConditionalTrait<GrantConditionOnMovementInfo>, INotifyMoving
 	{
 		readonly IMove movement;
-		ConditionManager conditionManager;
-		int conditionToken = ConditionManager.InvalidConditionToken;
+		int conditionToken = Actor.InvalidConditionToken;
 
 		public GrantConditionOnMovement(Actor self, GrantConditionOnMovementInfo info)
 			: base(info)
@@ -38,23 +37,14 @@ namespace OpenRA.Mods.Common.Traits
 			movement = self.Trait<IMove>();
 		}
 
-		protected override void Created(Actor self)
-		{
-			conditionManager = self.TraitOrDefault<ConditionManager>();
-			base.Created(self);
-		}
-
 		void UpdateCondition(Actor self, MovementType types)
 		{
-			if (conditionManager == null)
-				return;
-
 			var validMovement = !IsTraitDisabled && (types & Info.ValidMovementTypes) != 0;
 
-			if (!validMovement && conditionToken != ConditionManager.InvalidConditionToken)
-				conditionToken = conditionManager.RevokeCondition(self, conditionToken);
-			else if (validMovement && conditionToken == ConditionManager.InvalidConditionToken)
-				conditionToken = conditionManager.GrantCondition(self, Info.Condition);
+			if (!validMovement && conditionToken != Actor.InvalidConditionToken)
+				conditionToken = self.RevokeCondition(conditionToken);
+			else if (validMovement && conditionToken == Actor.InvalidConditionToken)
+				conditionToken = self.GrantCondition(Info.Condition);
 		}
 
 		void INotifyMoving.MovementTypeChanged(Actor self, MovementType types)

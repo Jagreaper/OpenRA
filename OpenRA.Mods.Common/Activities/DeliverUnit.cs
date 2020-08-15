@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -84,21 +84,19 @@ namespace OpenRA.Mods.Common.Activities
 				var targetPosition = self.CenterPosition + body.LocalToWorld(localOffset);
 				var targetLocation = self.World.Map.CellContaining(targetPosition);
 				carryall.Carryable.Trait<IPositionable>().SetPosition(carryall.Carryable, targetLocation, SubCell.FullCell);
-
-				// HACK: directly manipulate the turret facings to match the new orientation
-				// This can eventually go away, when we make turret facings relative to the body
-				var carryableFacing = carryall.Carryable.Trait<IFacing>();
-				var facingDelta = facing.Facing - carryableFacing.Facing;
-				foreach (var t in carryall.Carryable.TraitsImplementing<Turreted>())
-					t.TurretFacing += facingDelta;
-
-				carryableFacing.Facing = facing.Facing;
+				carryall.Carryable.Trait<IFacing>().Facing = facing.Facing;
 
 				// Put back into world
 				self.World.AddFrameEndTask(w =>
 				{
+					if (self.IsDead)
+						return;
+
 					var cargo = carryall.Carryable;
-					var carryable = carryall.Carryable.Trait<Carryable>();
+					if (cargo == null)
+						return;
+
+					var carryable = cargo.Trait<Carryable>();
 					w.Add(cargo);
 					carryall.DetachCarryable(self);
 					carryable.UnReserve(cargo);

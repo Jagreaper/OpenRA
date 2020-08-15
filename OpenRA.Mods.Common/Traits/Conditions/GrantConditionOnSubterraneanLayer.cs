@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -74,11 +74,11 @@ namespace OpenRA.Mods.Common.Traits
 
 			// Grant condition when new layer is Subterranean and depth is lower than transition depth,
 			// revoke condition when new layer is not Subterranean and depth is at or higher than transition depth.
-			if (newLayer == ValidLayerType && depth < transitionDepth && conditionToken == ConditionManager.InvalidConditionToken)
-				conditionToken = conditionManager.GrantCondition(self, Info.Condition);
-			else if (newLayer != ValidLayerType && depth > transitionDepth && conditionToken != ConditionManager.InvalidConditionToken)
+			if (newLayer == ValidLayerType && depth < transitionDepth && conditionToken == Actor.InvalidConditionToken)
+				conditionToken = self.GrantCondition(Info.Condition);
+			else if (newLayer != ValidLayerType && depth > transitionDepth && conditionToken != Actor.InvalidConditionToken)
 			{
-				conditionToken = conditionManager.RevokeCondition(self, conditionToken);
+				conditionToken = self.RevokeCondition(conditionToken);
 				PlayTransitionAudioVisuals(self, self.Location);
 			}
 		}

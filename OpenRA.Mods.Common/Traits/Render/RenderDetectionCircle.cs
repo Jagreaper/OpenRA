@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -18,7 +18,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits.Render
 {
-	class RenderDetectionCircleInfo : ITraitInfo, Requires<DetectCloakedInfo>
+	class RenderDetectionCircleInfo : TraitInfo, Requires<DetectCloakedInfo>
 	{
 		[Desc("WAngle the Radar update line advances per tick.")]
 		public readonly WAngle UpdateLineTick = new WAngle(-1);
@@ -32,7 +32,7 @@ namespace OpenRA.Mods.Common.Traits.Render
 		[Desc("Contrast color of the circle and scanner update line.")]
 		public readonly Color ContrastColor = Color.FromArgb(96, Color.Black);
 
-		public object Create(ActorInitializer init) { return new RenderDetectionCircle(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new RenderDetectionCircle(init.Self, this); }
 	}
 
 	class RenderDetectionCircle : ITick, IRenderAnnotationsWhenSelected

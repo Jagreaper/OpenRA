@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -60,9 +60,9 @@ namespace OpenRA.Mods.Common.Traits
 			player = self.Owner;
 		}
 
-		protected override void TraitEnabled(Actor self)
+		protected override void Created(Actor self)
 		{
-			requestPause = player.PlayerActor.TraitsImplementing<IBotRequestPauseUnitProduction>().ToArray();
+			requestPause = self.Owner.PlayerActor.TraitsImplementing<IBotRequestPauseUnitProduction>().ToArray();
 		}
 
 		void IBotNotifyIdleBaseUnits.UpdatedIdleBaseUnits(List<Actor> idleUnits)
@@ -155,7 +155,7 @@ namespace OpenRA.Mods.Common.Traits
 			if (queue != null)
 			{
 				bot.QueueOrder(Order.StartProduction(queue.Actor, name, 1));
-				AIUtils.BotDebug("AI: {0} decided to build {1} (external request)", queue.Actor.Owner, name);
+				AIUtils.BotDebug("{0} decided to build {1} (external request)", queue.Actor.Owner, name);
 			}
 		}
 

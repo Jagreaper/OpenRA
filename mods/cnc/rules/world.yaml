@@ -140,7 +140,6 @@
 	ResourceType@green-tib:
 		Type: Tiberium
 		Name: Tiberium
-		PipColor: Green
 		ResourceType: 1
 		Palette: staticterrain
 		TerrainType: Tiberium
@@ -152,7 +151,6 @@
 	ResourceType@blue-tib:
 		Type: BlueTiberium
 		Name: Tiberium
-		PipColor: Blue
 		ResourceType: 2
 		Palette: bluetiberium
 		TerrainType: BlueTiberium
@@ -184,11 +182,15 @@ World:
 		Type: Crater
 		Sequence: craters
 	ResourceLayer:
+	ResourceRenderer:
+		RenderTypes: Tiberium, BlueTiberium
 	ResourceClaimLayer:
 	WarheadDebugOverlay:
 	CustomTerrainDebugOverlay:
 	MapCreeps:
 		CheckboxVisible: False
+		CheckboxEnabled: True
+		CheckboxLocked: True
 	SpawnMapActors:
 	MapBuildRadius:
 		AllyBuildRadiusCheckboxDisplayOrder: 4
@@ -265,6 +267,7 @@ World:
 EditorWorld:
 	Inherits: ^BaseWorld
 	EditorActorLayer:
+	EditorCursorLayer:
 	EditorResourceLayer:
 	EditorSelectionLayer:
 	LoadWidgetAtGameStart:

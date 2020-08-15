@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -53,9 +53,9 @@ namespace OpenRA.Mods.Common.Activities
 		protected virtual bool TryStartEnter(Actor self, Actor targetActor) { return true; }
 
 		/// <summary>
-		/// Called when the actor has entered the target actor
-		/// Return true if the action succeeded and the actor should be Killed/Disposed
-		/// (assuming the relevant EnterBehaviour), or false if the actor should exit unharmed
+		/// Called when the actor has entered the target actor.
+		/// Actor will be be Killed/Disposed or they will enter/exit unharmed.
+		/// Depends on either the EnterBehaviour of the actor or the requirements of an overriding function.
 		/// </summary>
 		protected virtual void OnEnterComplete(Actor self, Actor targetActor) { }
 

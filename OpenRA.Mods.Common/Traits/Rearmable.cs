@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -15,7 +15,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class RearmableInfo : ITraitInfo
+	public class RearmableInfo : TraitInfo
 	{
 		[ActorReference]
 		[FieldLoader.Require]
@@ -25,7 +25,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Name(s) of AmmoPool(s) that use this trait to rearm.")]
 		public readonly HashSet<string> AmmoPools = new HashSet<string> { "primary" };
 
-		public object Create(ActorInitializer init) { return new Rearmable(this); }
+		public override object Create(ActorInitializer init) { return new Rearmable(this); }
 	}
 
 	public class Rearmable : INotifyCreated, INotifyResupply

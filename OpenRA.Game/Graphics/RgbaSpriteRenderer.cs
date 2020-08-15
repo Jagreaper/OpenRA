@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -44,6 +44,22 @@ namespace OpenRA.Graphics
 				throw new InvalidOperationException("DrawRGBASprite requires a RGBA sprite.");
 
 			parent.DrawSprite(s, a, b, c, d);
+		}
+
+		public void DrawSpriteWithTint(Sprite s, float3 location, float3 size, float3 tint)
+		{
+			if (s.Channel != TextureChannel.RGBA)
+				throw new InvalidOperationException("DrawRGBASprite requires a RGBA sprite.");
+
+			parent.DrawSpriteWithTint(s, location, 0, size, tint);
+		}
+
+		public void DrawSpriteWithTint(Sprite s, float3 a, float3 b, float3 c, float3 d, float3 tint)
+		{
+			if (s.Channel != TextureChannel.RGBA)
+				throw new InvalidOperationException("DrawRGBASprite requires a RGBA sprite.");
+
+			parent.DrawSpriteWithTint(s, a, b, c, d, tint);
 		}
 	}
 }

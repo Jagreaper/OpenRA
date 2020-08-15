@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -23,7 +23,7 @@ namespace OpenRA.Graphics
 		public bool IsDecoration { get; set; }
 
 		readonly SequenceProvider sequenceProvider;
-		readonly Func<int> facingFunc;
+		readonly Func<WAngle> facingFunc;
 		readonly Func<bool> paused;
 
 		int frame;
@@ -33,15 +33,15 @@ namespace OpenRA.Graphics
 		Action tickFunc = () => { };
 
 		public Animation(World world, string name)
-			: this(world, name, () => 0) { }
+			: this(world, name, () => WAngle.Zero) { }
 
-		public Animation(World world, string name, Func<int> facingFunc)
+		public Animation(World world, string name, Func<WAngle> facingFunc)
 			: this(world, name, facingFunc, null) { }
 
 		public Animation(World world, string name, Func<bool> paused)
-			: this(world, name, () => 0, paused) { }
+			: this(world, name, () => WAngle.Zero, paused) { }
 
-		public Animation(World world, string name, Func<int> facingFunc, Func<bool> paused)
+		public Animation(World world, string name, Func<WAngle> facingFunc, Func<bool> paused)
 		{
 			sequenceProvider = world.Map.Rules.Sequences;
 			Name = name.ToLowerInvariant();
@@ -54,21 +54,22 @@ namespace OpenRA.Graphics
 
 		public IRenderable[] Render(WPos pos, WVec offset, int zOffset, PaletteReference palette, float scale)
 		{
-			var imageRenderable = new SpriteRenderable(Image, pos, offset, CurrentSequence.ZOffset + zOffset, palette, scale, IsDecoration);
+			var imageRenderable = new SpriteRenderable(Image, pos, offset, CurrentSequence.ZOffset + zOffset, palette, scale, IsDecoration, CurrentSequence.IgnoreWorldTint);
 
 			if (CurrentSequence.ShadowStart >= 0)
 			{
 				var shadow = CurrentSequence.GetShadow(CurrentFrame, facingFunc());
-				var shadowRenderable = new SpriteRenderable(shadow, pos, offset, CurrentSequence.ShadowZOffset + zOffset, palette, scale, true);
+				var shadowRenderable = new SpriteRenderable(shadow, pos, offset, CurrentSequence.ShadowZOffset + zOffset, palette, scale, true, CurrentSequence.IgnoreWorldTint);
 				return new IRenderable[] { shadowRenderable, imageRenderable };
 			}
 
 			return new IRenderable[] { imageRenderable };
 		}
 
-		public IRenderable[] RenderUI(int2 pos, WVec offset, int zOffset, PaletteReference palette, float scale)
+		public IRenderable[] RenderUI(WorldRenderer wr, int2 pos, WVec offset, int zOffset, PaletteReference palette, float scale)
 		{
-			var imagePos = pos - new int2((int)(scale * Image.Size.X / 2), (int)(scale * Image.Size.Y / 2));
+			var screenOffset = (scale * wr.ScreenVectorComponents(offset)).XY.ToInt2();
+			var imagePos = pos + screenOffset - new int2((int)(scale * Image.Size.X / 2), (int)(scale * Image.Size.Y / 2));
 			var imageRenderable = new UISpriteRenderable(Image, WPos.Zero + offset, imagePos, CurrentSequence.ZOffset + zOffset, palette, scale);
 
 			if (CurrentSequence.ShadowStart >= 0)

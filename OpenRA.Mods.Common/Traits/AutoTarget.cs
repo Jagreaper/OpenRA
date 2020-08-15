@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -11,7 +11,6 @@
 
 using System.Collections.Generic;
 using System.Linq;
-using OpenRA.Activities;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
@@ -39,6 +38,9 @@ namespace OpenRA.Mods.Common.Traits
 
 		[Desc("It will try to pivot to face the enemy if stance is not HoldFire.")]
 		public readonly bool AllowTurning = true;
+
+		[Desc("Scan for new targets when idle.")]
+		public readonly bool ScanOnIdle = true;
 
 		[Desc("Set to a value >1 to override weapons maximum range for this.")]
 		public readonly int ScanRadius = -1;
@@ -116,11 +118,11 @@ namespace OpenRA.Mods.Common.Traits
 			yield return new EditorActorDropdown("Stance", EditorStanceDisplayOrder, labels,
 				actor =>
 				{
-					var init = actor.Init<StanceInit>();
-					var stance = init != null ? init.Value(world) : InitialStance;
+					var init = actor.GetInitOrDefault<StanceInit>(this);
+					var stance = init != null ? init.Value : InitialStance;
 					return stances[(int)stance];
 				},
-				(actor, value) => actor.ReplaceInit(new StanceInit((UnitStance)stances.IndexOf(value))));
+				(actor, value) => actor.ReplaceInit(new StanceInit(this, (UnitStance)stances.IndexOf(value))));
 		}
 	}
 
@@ -142,11 +144,10 @@ namespace OpenRA.Mods.Common.Traits
 		public UnitStance PredictedStance;
 
 		UnitStance stance;
-		ConditionManager conditionManager;
 		IDisableAutoTarget[] disableAutoTarget;
 		INotifyStanceChanged[] notifyStanceChanged;
 		IEnumerable<AutoTargetPriorityInfo> activeTargetPriorities;
-		int conditionToken = ConditionManager.InvalidConditionToken;
+		int conditionToken = Actor.InvalidConditionToken;
 
 		public void SetStance(Actor self, UnitStance value)
 		{
@@ -167,15 +168,12 @@ namespace OpenRA.Mods.Common.Traits
 
 		void ApplyStanceCondition(Actor self)
 		{
-			if (conditionManager == null)
-				return;
-
-			if (conditionToken != ConditionManager.InvalidConditionToken)
-				conditionToken = conditionManager.RevokeCondition(self, conditionToken);
+			if (conditionToken != Actor.InvalidConditionToken)
+				conditionToken = self.RevokeCondition(conditionToken);
 
 			string condition;
 			if (Info.ConditionByStance.TryGetValue(stance, out condition))
-				conditionToken = conditionManager.GrantCondition(self, condition);
+				conditionToken = self.GrantCondition(condition);
 		}
 
 		public AutoTarget(ActorInitializer init, AutoTargetInfo info)
@@ -184,10 +182,7 @@ namespace OpenRA.Mods.Common.Traits
 			var self = init.Self;
 			ActiveAttackBases = self.TraitsImplementing<AttackBase>().ToArray().Where(Exts.IsTraitEnabled);
 
-			if (init.Contains<StanceInit>())
-				stance = init.Get<StanceInit, UnitStance>();
-			else
-				stance = self.Owner.IsBot || !self.Owner.Playable ? info.InitialStanceAI : info.InitialStance;
+			stance = init.GetValue<StanceInit, UnitStance>(self.Owner.IsBot || !self.Owner.Playable ? info.InitialStanceAI : info.InitialStance);
 
 			PredictedStance = stance;
 
@@ -203,7 +198,6 @@ namespace OpenRA.Mods.Common.Traits
 					.OrderByDescending(ati => ati.Info.Priority).ToArray()
 					.Where(Exts.IsTraitEnabled).Select(atp => atp.Info);
 
-			conditionManager = self.TraitOrDefault<ConditionManager>();
 			disableAutoTarget = self.TraitsImplementing<IDisableAutoTarget>().ToArray();
 			notifyStanceChanged = self.TraitsImplementing<INotifyStanceChanged>().ToArray();
 			ApplyStanceCondition(self);
@@ -269,7 +263,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		void INotifyIdle.TickIdle(Actor self)
 		{
-			if (IsTraitDisabled || Stance < UnitStance.Defend)
+			if (IsTraitDisabled || !Info.ScanOnIdle || Stance < UnitStance.Defend)
 				return;
 
 			var allowMove = allowMovement && Stance > UnitStance.Defend;
@@ -290,11 +284,11 @@ namespace OpenRA.Mods.Common.Traits
 		{
 			if (nextScanTime <= 0 && ActiveAttackBases.Any())
 			{
-				nextScanTime = self.World.SharedRandom.Next(Info.MinimumScanTimeInterval, Info.MaximumScanTimeInterval);
-
 				foreach (var dat in disableAutoTarget)
 					if (dat.DisableAutoTarget(self))
 						return Target.Invalid;
+
+				nextScanTime = self.World.SharedRandom.Next(Info.MinimumScanTimeInterval, Info.MaximumScanTimeInterval);
 
 				foreach (var ab in ActiveAttackBases)
 				{
@@ -321,12 +315,12 @@ namespace OpenRA.Mods.Common.Traits
 		void Attack(Actor self, Target target, bool allowMove)
 		{
 			foreach (var ab in ActiveAttackBases)
-				ab.AttackTarget(target, false, allowMove);
+				ab.AttackTarget(target, AttackSource.AutoTarget, false, allowMove);
 		}
 
 		public bool HasValidTargetPriority(Actor self, Player owner, BitSet<TargetableType> targetTypes)
 		{
-			if (Stance <= UnitStance.ReturnFire)
+			if (owner == null || Stance <= UnitStance.ReturnFire)
 				return false;
 
 			return activeTargetPriorities.Any(ati =>
@@ -420,7 +414,7 @@ namespace OpenRA.Mods.Common.Traits
 				if (!armaments.Any())
 					continue;
 
-				if (!allowTurn && !ab.TargetInFiringArc(self, target, ab.Info.FacingTolerance))
+				if (!allowTurn && !ab.TargetInFiringArc(self, target, 4 * ab.Info.FacingTolerance))
 					continue;
 
 				// Evaluate whether we want to target this actor
@@ -450,13 +444,9 @@ namespace OpenRA.Mods.Common.Traits
 		}
 	}
 
-	public class StanceInit : IActorInit<UnitStance>
+	public class StanceInit : ValueActorInit<UnitStance>, ISingleInstanceInit
 	{
-		[FieldFromYamlKey]
-		readonly UnitStance value = UnitStance.AttackAnything;
-
-		public StanceInit() { }
-		public StanceInit(UnitStance init) { value = init; }
-		public UnitStance Value(World world) { return value; }
+		public StanceInit(TraitInfo info, UnitStance value)
+			: base(info, value) { }
 	}
 }

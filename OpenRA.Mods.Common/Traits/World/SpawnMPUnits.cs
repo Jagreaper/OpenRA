@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -19,7 +19,7 @@ using OpenRA.Traits;
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Spawn base actor at the spawnpoint and support units in an annulus around the base actor. Both are defined at MPStartUnits. Attach this to the world actor.")]
-	public class SpawnMPUnitsInfo : ITraitInfo, Requires<MPStartLocationsInfo>, Requires<MPStartUnitsInfo>, ILobbyOptions
+	public class SpawnMPUnitsInfo : TraitInfo, Requires<MPStartLocationsInfo>, Requires<MPStartUnitsInfo>, ILobbyOptions
 	{
 		public readonly string StartingUnitsClass = "none";
 
@@ -53,7 +53,7 @@ namespace OpenRA.Mods.Common.Traits
 					new ReadOnlyDictionary<string, string>(startingUnits), StartingUnitsClass, DropdownLocked);
 		}
 
-		public object Create(ActorInitializer init) { return new SpawnMPUnits(this); }
+		public override object Create(ActorInitializer init) { return new SpawnMPUnits(this); }
 	}
 
 	public class SpawnMPUnits : IWorldLoaded
@@ -85,12 +85,13 @@ namespace OpenRA.Mods.Common.Traits
 
 			if (unitGroup.BaseActor != null)
 			{
+				var facing = unitGroup.BaseActorFacing.HasValue ? unitGroup.BaseActorFacing.Value : new WAngle(w.SharedRandom.Next(1024));
 				w.CreateActor(unitGroup.BaseActor.ToLowerInvariant(), new TypeDictionary
 				{
 					new LocationInit(sp + unitGroup.BaseActorOffset),
 					new OwnerInit(p),
 					new SkipMakeAnimsInit(),
-					new FacingInit(unitGroup.BaseActorFacing < 0 ? w.SharedRandom.Next(256) : unitGroup.BaseActorFacing),
+					new FacingInit(facing),
 				});
 			}
 
@@ -112,13 +113,14 @@ namespace OpenRA.Mods.Common.Traits
 				}
 
 				var subCell = ip.SharesCell ? w.ActorMap.FreeSubCell(validCell) : 0;
+				var facing = unitGroup.SupportActorsFacing.HasValue ? unitGroup.SupportActorsFacing.Value : new WAngle(w.SharedRandom.Next(1024));
 
 				w.CreateActor(s.ToLowerInvariant(), new TypeDictionary
 				{
 					new OwnerInit(p),
 					new LocationInit(validCell),
 					new SubCellInit(subCell),
-					new FacingInit(unitGroup.SupportActorsFacing < 0 ? w.SharedRandom.Next(256) : unitGroup.SupportActorsFacing)
+					new FacingInit(facing),
 				});
 			}
 		}

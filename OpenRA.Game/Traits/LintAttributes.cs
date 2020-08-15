@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -55,10 +55,12 @@ namespace OpenRA.Traits
 	{
 		public readonly string ImageReference; // The field name in the same trait info that contains the image name.
 		public readonly bool Prefix;
-		public SequenceReferenceAttribute(string imageReference = null, bool prefix = false)
+		public readonly bool ActorNameFallback;
+		public SequenceReferenceAttribute(string imageReference = null, bool prefix = false, bool actorNameFallback = false)
 		{
 			ImageReference = imageReference;
 			Prefix = prefix;
+			ActorNameFallback = actorNameFallback;
 		}
 	}
 

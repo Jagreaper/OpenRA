@@ -1,5 +1,5 @@
 --[[
-   Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+   Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
    This file is part of OpenRA, which is free software. It is made
    available to you under the terms of the GNU General Public License
    as published by the Free Software Foundation, either version 3 of
@@ -74,26 +74,15 @@ CreateScientists = function()
 	end)
 end
 
-FinishTimer = function()
-	for i = 0, 5 do
-		local c = TimerColor
-		if i % 2 == 0 then
-			c = HSLColor.White
-		end
-
-		Trigger.AfterDelay(DateTime.Seconds(i), function() UserInterface.SetMissionText("The experiment is a success!", c) end)
-	end
-	Trigger.AfterDelay(DateTime.Seconds(6), function() UserInterface.SetMissionText("") end)
-end
-
 DefendChronosphereCompleted = function()
 	local cells = Utils.ExpandFootprint({ ChronoshiftLocation.Location }, false)
 	local units = { }
 	for i = 1, #cells do
-		local unit = Actor.Create("2tnk", true, { Owner = greece, Facing = 0 })
+		local unit = Actor.Create("2tnk", true, { Owner = greece, Facing = Angle.North })
 		units[unit] = cells[i]
 	end
 	Chronosphere.Chronoshift(units)
+	UserInterface.SetMissionText("The experiment is a success!", greece.Color)
 
 	Trigger.AfterDelay(DateTime.Seconds(3), function()
 		greece.MarkCompletedObjective(DefendChronosphere)

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -18,7 +18,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Cnc.Traits
 {
-	public class WithBuildingBibInfo : ITraitInfo, Requires<BuildingInfo>, IRenderActorPreviewSpritesInfo, IActorPreviewInitInfo, Requires<RenderSpritesInfo>
+	public class WithBuildingBibInfo : TraitInfo, Requires<BuildingInfo>, IRenderActorPreviewSpritesInfo, IActorPreviewInitInfo, Requires<RenderSpritesInfo>
 	{
 		[SequenceReference]
 		public readonly string Sequence = "bib";
@@ -28,11 +28,11 @@ namespace OpenRA.Mods.Cnc.Traits
 
 		public readonly bool HasMinibib = false;
 
-		public object Create(ActorInitializer init) { return new WithBuildingBib(init.Self, this); }
+		public override object Create(ActorInitializer init) { return new WithBuildingBib(init.Self, this); }
 
 		public IEnumerable<IActorPreview> RenderPreviewSprites(ActorPreviewInitializer init, RenderSpritesInfo rs, string image, int facings, PaletteReference p)
 		{
-			if (init.Contains<HideBibPreviewInit>() && init.Get<HideBibPreviewInit, bool>())
+			if (init.Contains<HideBibPreviewInit>(this))
 				yield break;
 
 			if (Palette != null)
@@ -45,10 +45,7 @@ namespace OpenRA.Mods.Cnc.Traits
 			var bibOffset = bi.Dimensions.Y - rows;
 			var centerOffset = bi.CenterOffset(init.World);
 			var map = init.World.Map;
-			var location = CPos.Zero;
-
-			if (init.Contains<LocationInit>())
-				location = init.Get<LocationInit, CPos>();
+			var location = init.GetValue<LocationInit, CPos>(CPos.Zero);
 
 			for (var i = 0; i < rows * width; i++)
 			{
@@ -58,9 +55,15 @@ namespace OpenRA.Mods.Cnc.Traits
 				var cell = location + cellOffset;
 
 				// Some mods may define terrain-specific bibs
-				var terrain = map.GetTerrainInfo(cell).Type;
-				var testSequence = Sequence + "-" + terrain;
-				var sequence = anim.HasSequence(testSequence) ? testSequence : Sequence;
+				var sequence = Sequence;
+				if (map.Tiles.Contains(cell))
+				{
+					var terrain = map.GetTerrainInfo(cell).Type;
+					var testSequence = Sequence + "-" + terrain;
+					if (anim.HasSequence(testSequence))
+						sequence = testSequence;
+				}
+
 				anim.PlayFetchIndex(sequence, () => index);
 				anim.IsDecoration = true;
 
@@ -70,7 +73,7 @@ namespace OpenRA.Mods.Cnc.Traits
 			}
 		}
 
-		IEnumerable<object> IActorPreviewInitInfo.ActorPreviewInits(ActorInfo ai, ActorPreviewType type)
+		IEnumerable<ActorInit> IActorPreviewInitInfo.ActorPreviewInits(ActorInfo ai, ActorPreviewType type)
 		{
 			yield return new HideBibPreviewInit();
 		}
@@ -130,13 +133,5 @@ namespace OpenRA.Mods.Cnc.Traits
 		}
 	}
 
-	class HideBibPreviewInit : IActorInit<bool>, ISuppressInitExport
-	{
-		[FieldFromYamlKey]
-		readonly bool value = true;
-
-		public HideBibPreviewInit() { }
-		public HideBibPreviewInit(bool init) { value = init; }
-		public bool Value(World world) { return value; }
-	}
+	class HideBibPreviewInit : RuntimeFlagInit { }
 }

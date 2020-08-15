@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -55,6 +55,7 @@ namespace OpenRA.Mods.Common.Widgets
 		// Note: LinterHotkeyNames assumes that these are disabled by default
 		public readonly string HotkeyPrefix = null;
 		public readonly int HotkeyCount = 0;
+		public readonly HotkeyReference SelectProductionBuildingHotkey = new HotkeyReference();
 
 		public readonly string ClockAnimation = "clock";
 		public readonly string ClockSequence = "idle";
@@ -63,6 +64,9 @@ namespace OpenRA.Mods.Common.Widgets
 		public readonly string NotBuildableAnimation = "clock";
 		public readonly string NotBuildableSequence = "idle";
 		public readonly string NotBuildablePalette = "chrome";
+
+		public readonly string OverlayFont = "TinyBold";
+		public readonly string SymbolsFont = "Symbols";
 
 		public readonly bool DrawTime = true;
 
@@ -148,8 +152,8 @@ namespace OpenRA.Mods.Common.Widgets
 			cantBuild.PlayFetchIndex(NotBuildableSequence, () => 0);
 			clock = new Animation(world, ClockAnimation);
 
-			overlayFont = Game.Renderer.Fonts["TinyBold"];
-			Game.Renderer.Fonts.TryGetValue("Symbols", out symbolFont);
+			overlayFont = Game.Renderer.Fonts[OverlayFont];
+			Game.Renderer.Fonts.TryGetValue(SymbolsFont, out symbolFont);
 		}
 
 		public override void Initialize(WidgetArgs args)
@@ -367,12 +371,37 @@ namespace OpenRA.Mods.Common.Widgets
 			if (e.Event == KeyInputEvent.Up || CurrentQueue == null)
 				return false;
 
+			if (SelectProductionBuildingHotkey.IsActivatedBy(e))
+				return SelectProductionBuilding();
+
 			var batchModifiers = e.Modifiers.HasModifier(Modifiers.Shift) ? Modifiers.Shift : Modifiers.None;
 
 			// HACK: enable production if the shift key is pressed
 			e.Modifiers &= ~Modifiers.Shift;
 			var toBuild = icons.Values.FirstOrDefault(i => i.Hotkey != null && i.Hotkey.IsActivatedBy(e));
 			return toBuild != null ? HandleEvent(toBuild, MouseButton.Left, batchModifiers) : false;
+		}
+
+		bool SelectProductionBuilding()
+		{
+			var viewport = worldRenderer.Viewport;
+			var selection = World.Selection;
+
+			if (CurrentQueue == null)
+				return true;
+
+			var facility = CurrentQueue.MostLikelyProducer().Actor;
+
+			if (facility == null || facility.OccupiesSpace == null)
+				return true;
+
+			if (selection.Actors.Count() == 1 && selection.Contains(facility))
+				viewport.Center(selection.Actors);
+			else
+				selection.Combine(World, new[] { facility }, false, true);
+
+			Game.Sound.PlayNotification(World.Map.Rules, null, "Sounds", ClickSound, null);
+			return true;
 		}
 
 		public void RefreshIcons()
@@ -407,13 +436,15 @@ namespace OpenRA.Mods.Common.Widgets
 				var bi = item.TraitInfo<BuildableInfo>();
 				icon.Play(bi.Icon);
 
+				var palette = bi.IconPaletteIsPlayerPalette ? bi.IconPalette + producer.Actor.Owner.InternalName : bi.IconPalette;
+
 				var pi = new ProductionIcon()
 				{
 					Actor = item,
 					Name = item.Name,
 					Hotkey = DisplayedIconCount < HotkeyCount ? hotkeys[DisplayedIconCount] : null,
 					Sprite = icon.Image,
-					Palette = worldRenderer.Palette(bi.IconPalette),
+					Palette = worldRenderer.Palette(palette),
 					IconClockPalette = worldRenderer.Palette(ClockPalette),
 					IconDarkenPalette = worldRenderer.Palette(NotBuildablePalette),
 					Pos = new float2(rect.Location),
@@ -453,6 +484,7 @@ namespace OpenRA.Mods.Common.Widgets
 			var pios = currentQueue.Actor.Owner.PlayerActor.TraitsImplementing<IProductionIconOverlay>();
 
 			// Icons
+			Game.Renderer.EnableAntialiasingFilter();
 			foreach (var icon in icons.Values)
 			{
 				WidgetUtils.DrawSHPCentered(icon.Sprite, icon.Pos + iconOffset, icon.Palette);
@@ -476,6 +508,8 @@ namespace OpenRA.Mods.Common.Widgets
 				else if (!buildableItems.Any(a => a.Name == icon.Name))
 					WidgetUtils.DrawSHPCentered(cantBuild.Image, icon.Pos + iconOffset, icon.IconDarkenPalette);
 			}
+
+			Game.Renderer.DisableAntialiasingFilter();
 
 			// Overlays
 			foreach (var icon in icons.Values)
@@ -501,7 +535,7 @@ namespace OpenRA.Mods.Common.Widgets
 							icon.Pos + timeOffset,
 							Color.White, Color.Black, 1);
 
-					if (first.Infinite)
+					if (first.Infinite && symbolFont != null)
 						symbolFont.DrawTextWithContrast(InfiniteSymbol,
 							icon.Pos + infiniteOffset,
 							Color.White, Color.Black, 1);

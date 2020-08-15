@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -14,7 +14,7 @@ using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits.Sound
 {
-	public class CaptureNotificationInfo : ITraitInfo
+	public class CaptureNotificationInfo : TraitInfo
 	{
 		[NotificationReference("Speech")]
 		[Desc("The speech notification to play to the new owner.")]
@@ -30,7 +30,7 @@ namespace OpenRA.Mods.Common.Traits.Sound
 		[Desc("Specifies if LoseNotification is played with the voice of the new owners faction.")]
 		public readonly bool LoseNewOwnerVoice = false;
 
-		public object Create(ActorInitializer init) { return new CaptureNotification(this); }
+		public override object Create(ActorInitializer init) { return new CaptureNotification(this); }
 	}
 
 	public class CaptureNotification : INotifyCapture

@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -22,6 +22,7 @@ using System.Threading.Tasks;
 using OpenRA.Graphics;
 using OpenRA.Network;
 using OpenRA.Primitives;
+using OpenRA.Server;
 using OpenRA.Support;
 using OpenRA.Widgets;
 
@@ -38,7 +39,7 @@ namespace OpenRA
 
 		public static ModData ModData;
 		public static Settings Settings;
-		public static ICursor Cursor;
+		public static CursorManager Cursor;
 		public static bool HideCursor;
 		static WorldRenderer worldRenderer;
 		static string modLaunchWrapper;
@@ -50,7 +51,6 @@ namespace OpenRA
 
 		public static Renderer Renderer;
 		public static Sound Sound;
-		public static bool HasInputFocus = false;
 
 		public static string EngineVersion { get; private set; }
 		public static LocalPlayerProfile LocalPlayerProfile;
@@ -61,13 +61,13 @@ namespace OpenRA
 
 		public static event Action OnShellmapLoaded = () => { };
 
-		public static OrderManager JoinServer(string host, int port, string password, bool recordReplay = true)
+		public static OrderManager JoinServer(ConnectionTarget endpoint, string password, bool recordReplay = true)
 		{
-			var connection = new NetworkConnection(host, port);
+			var connection = new NetworkConnection(endpoint);
 			if (recordReplay)
 				connection.StartRecording(() => { return TimestampedFilename(); });
 
-			var om = new OrderManager(host, port, password, connection);
+			var om = new OrderManager(endpoint, password, connection);
 			JoinInner(om);
 			return om;
 		}
@@ -75,7 +75,7 @@ namespace OpenRA
 		static string TimestampedFilename(bool includemilliseconds = false)
 		{
 			var format = includemilliseconds ? "yyyy-MM-ddTHHmmssfffZ" : "yyyy-MM-ddTHHmmssZ";
-			return "OpenRA-" + DateTime.UtcNow.ToString(format, CultureInfo.InvariantCulture);
+			return ModData.Manifest.Id + "-" + DateTime.UtcNow.ToString(format, CultureInfo.InvariantCulture);
 		}
 
 		static void JoinInner(OrderManager om)
@@ -88,12 +88,12 @@ namespace OpenRA
 
 		public static void JoinReplay(string replayFile)
 		{
-			JoinInner(new OrderManager("<no server>", -1, "", new ReplayConnection(replayFile)));
+			JoinInner(new OrderManager(new ConnectionTarget(), "", new ReplayConnection(replayFile)));
 		}
 
 		static void JoinLocal()
 		{
-			JoinInner(new OrderManager("<no server>", -1, "", new EchoConnection()));
+			JoinInner(new OrderManager(new ConnectionTarget(), "", new EchoConnection()));
 		}
 
 		// More accurate replacement for Environment.TickCount
@@ -104,14 +104,14 @@ namespace OpenRA
 		public static int NetFrameNumber { get { return OrderManager.NetFrameNumber; } }
 		public static int LocalTick { get { return OrderManager.LocalFrameNumber; } }
 
-		public static event Action<string, int> OnRemoteDirectConnect = (a, b) => { };
+		public static event Action<ConnectionTarget> OnRemoteDirectConnect = _ => { };
 		public static event Action<OrderManager> ConnectionStateChanged = _ => { };
 		static ConnectionState lastConnectionState = ConnectionState.PreConnecting;
 		public static int LocalClientId { get { return OrderManager.Connection.LocalClientId; } }
 
-		public static void RemoteDirectConnect(string host, int port)
+		public static void RemoteDirectConnect(ConnectionTarget endpoint)
 		{
-			OnRemoteDirectConnect(host, port);
+			OnRemoteDirectConnect(endpoint);
 		}
 
 		// Hacky workaround for orderManager visibility
@@ -233,7 +233,7 @@ namespace OpenRA
 
 			LobbyInfoChanged += lobbyReady;
 
-			om = JoinServer(IPAddress.Loopback.ToString(), CreateLocalServer(mapUID), "");
+			om = JoinServer(CreateLocalServer(mapUID), "");
 		}
 
 		public static bool IsHost
@@ -265,7 +265,7 @@ namespace OpenRA
 		static void Initialize(Arguments args)
 		{
 			var supportDirArg = args.GetValue("Engine.SupportDir", null);
-			if (supportDirArg != null)
+			if (!string.IsNullOrEmpty(supportDirArg))
 				Platform.OverrideSupportDir(supportDirArg);
 
 			Console.WriteLine("Platform is {0}", Platform.CurrentPlatform);
@@ -301,6 +301,7 @@ namespace OpenRA
 			Log.AddChannel("graphics", "graphics.log");
 			Log.AddChannel("geoip", "geoip.log");
 			Log.AddChannel("nat", "nat.log");
+			Log.AddChannel("client", "client.log");
 
 			var platforms = new[] { Settings.Game.Platform, "Default", null };
 			foreach (var p in platforms)
@@ -336,8 +337,6 @@ namespace OpenRA
 						Sound.Dispose();
 				}
 			}
-
-			GeoIP.Initialize();
 
 			if (Settings.Server.DiscoverNatDevices)
 				discoverNat = UPnP.DiscoverNatDevices(Settings.Server.NatDiscoveryTimeout);
@@ -386,7 +385,7 @@ namespace OpenRA
 			LobbyInfoChanged = () => { };
 			ConnectionStateChanged = om => { };
 			BeforeGameStart = () => { };
-			OnRemoteDirectConnect = (a, b) => { };
+			OnRemoteDirectConnect = endpoint => { };
 			delayedActions = new ActionQueue();
 
 			Ui.ResetAll();
@@ -436,30 +435,14 @@ namespace OpenRA
 			if (Cursor != null)
 				Cursor.Dispose();
 
-			if (Settings.Graphics.HardwareCursors)
-			{
-				try
-				{
-					Cursor = new HardwareCursor(ModData.CursorProvider);
-				}
-				catch (Exception e)
-				{
-					Log.Write("debug", "Failed to initialize hardware cursors. Falling back to software cursors.");
-					Log.Write("debug", "Error was: " + e.Message);
-
-					Console.WriteLine("Failed to initialize hardware cursors. Falling back to software cursors.");
-					Console.WriteLine("Error was: " + e.Message);
-
-					Cursor = new SoftwareCursor(ModData.CursorProvider);
-				}
-			}
-			else
-				Cursor = new SoftwareCursor(ModData.CursorProvider);
+			Cursor = new CursorManager(ModData.CursorProvider);
 
 			PerfHistory.Items["render"].HasNormalTick = false;
 			PerfHistory.Items["batches"].HasNormalTick = false;
+			PerfHistory.Items["render_world"].HasNormalTick = false;
 			PerfHistory.Items["render_widgets"].HasNormalTick = false;
 			PerfHistory.Items["render_flip"].HasNormalTick = false;
+			PerfHistory.Items["terrain_lighting"].HasNormalTick = false;
 
 			JoinLocal();
 
@@ -672,28 +655,33 @@ namespace OpenRA
 
 					// World rendering is disabled while the loading screen is displayed
 					if (worldRenderer != null && !worldRenderer.World.IsLoadingGameSave)
+					{
+						worldRenderer.Viewport.Tick();
 						worldRenderer.PrepareRenderables();
+					}
 
 					Ui.PrepareRenderables();
 					Renderer.WorldModelRenderer.EndFrame();
 				}
 
 				// worldRenderer is null during the initial install/download screen
-				if (worldRenderer != null)
+				// World rendering is disabled while the loading screen is displayed
+				// Use worldRenderer.World instead of OrderManager.World to avoid a rendering mismatch while processing orders
+				if (worldRenderer != null && !worldRenderer.World.IsLoadingGameSave)
 				{
-					Renderer.BeginFrame(worldRenderer.Viewport.TopLeft, worldRenderer.Viewport.Zoom);
+					Renderer.BeginWorld(worldRenderer.Viewport.Rectangle);
 					Sound.SetListenerPosition(worldRenderer.Viewport.CenterPosition);
-
-					// World rendering is disabled while the loading screen is displayed
-					// Use worldRenderer.World instead of OrderManager.World to avoid a rendering mismatch while processing orders
-					if (!worldRenderer.World.IsLoadingGameSave)
+					using (new PerfSample("render_world"))
 						worldRenderer.Draw();
 				}
-				else
-					Renderer.BeginFrame(int2.Zero, 1f);
 
 				using (new PerfSample("render_widgets"))
 				{
+					Renderer.BeginUI();
+
+					if (worldRenderer != null && !worldRenderer.World.IsLoadingGameSave)
+						worldRenderer.DrawAnnotations();
+
 					Ui.Draw();
 
 					if (ModData != null && ModData.CursorProvider != null)
@@ -720,8 +708,10 @@ namespace OpenRA
 
 			PerfHistory.Items["render"].Tick();
 			PerfHistory.Items["batches"].Tick();
+			PerfHistory.Items["render_world"].Tick();
 			PerfHistory.Items["render_widgets"].Tick();
 			PerfHistory.Items["render_flip"].Tick();
+			PerfHistory.Items["terrain_lighting"].Tick();
 		}
 
 		static void Loop()
@@ -767,6 +757,7 @@ namespace OpenRA
 			var nextLogic = RunTime;
 			var nextRender = RunTime;
 			var forcedNextRender = RunTime;
+			var renderBeforeNextTick = false;
 
 			while (state == RunStatus.Running)
 			{
@@ -795,9 +786,9 @@ namespace OpenRA
 				var nextUpdate = Math.Min(nextLogic, nextRender);
 				if (now >= nextUpdate)
 				{
-					var forceRender = now >= forcedNextRender;
+					var forceRender = renderBeforeNextTick || now >= forcedNextRender;
 
-					if (now >= nextLogic)
+					if (now >= nextLogic && !renderBeforeNextTick)
 					{
 						nextLogic += logicInterval;
 
@@ -805,7 +796,7 @@ namespace OpenRA
 
 						// Force at least one render per tick during regular gameplay
 						if (OrderManager.World != null && !OrderManager.World.IsLoadingGameSave && !OrderManager.World.IsReplay)
-							forceRender = true;
+							renderBeforeNextTick = true;
 					}
 
 					var haveSomeTimeUntilNextLogic = now < nextLogic;
@@ -824,6 +815,7 @@ namespace OpenRA
 						forcedNextRender = now + maxRenderInterval;
 
 						RenderTick();
+						renderBeforeNextTick = false;
 					}
 				}
 				else
@@ -868,6 +860,11 @@ namespace OpenRA
 			state = RunStatus.Success;
 		}
 
+		public static void AddSystemLine(string text)
+		{
+			AddSystemLine("Battlefield Control", text);
+		}
+
 		public static void AddSystemLine(string name, string text)
 		{
 			OrderManager.AddChatLine(name, systemMessageColor, text, systemMessageColor);
@@ -904,12 +901,19 @@ namespace OpenRA
 			return ModData.ObjectCreator.CreateObject<T>(name);
 		}
 
-		public static void CreateServer(ServerSettings settings)
+		public static ConnectionTarget CreateServer(ServerSettings settings)
 		{
-			server = new Server.Server(new IPEndPoint(IPAddress.Any, settings.ListenPort), settings, ModData, false);
+			var endpoints = new List<IPEndPoint>
+			{
+				new IPEndPoint(IPAddress.IPv6Any, settings.ListenPort),
+				new IPEndPoint(IPAddress.Any, settings.ListenPort)
+			};
+			server = new Server.Server(endpoints, settings, ModData, ServerType.Multiplayer);
+
+			return server.GetEndpointForLocalConnection();
 		}
 
-		public static int CreateLocalServer(string map)
+		public static ConnectionTarget CreateLocalServer(string map)
 		{
 			var settings = new ServerSettings()
 			{
@@ -918,9 +922,14 @@ namespace OpenRA
 				AdvertiseOnline = false
 			};
 
-			server = new Server.Server(new IPEndPoint(IPAddress.Loopback, 0), settings, ModData, false);
+			var endpoints = new List<IPEndPoint>
+			{
+				new IPEndPoint(IPAddress.IPv6Loopback, 0),
+				new IPEndPoint(IPAddress.Loopback, 0)
+			};
+			server = new Server.Server(endpoints, settings, ModData, ServerType.Local);
 
-			return server.Port;
+			return server.GetEndpointForLocalConnection();
 		}
 
 		public static bool IsCurrentWorld(World world)

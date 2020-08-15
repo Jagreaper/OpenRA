@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -29,31 +29,23 @@ namespace OpenRA.Mods.Common.Traits
 
 	class GrantCondition : ConditionalTrait<GrantConditionInfo>
 	{
-		ConditionManager conditionManager;
-		int conditionToken = ConditionManager.InvalidConditionToken;
+		int conditionToken = Actor.InvalidConditionToken;
 
 		public GrantCondition(GrantConditionInfo info)
 			: base(info) { }
 
-		protected override void Created(Actor self)
-		{
-			conditionManager = self.Trait<ConditionManager>();
-
-			base.Created(self);
-		}
-
 		protected override void TraitEnabled(Actor self)
 		{
-			if (conditionToken == ConditionManager.InvalidConditionToken)
-				conditionToken = conditionManager.GrantCondition(self, Info.Condition);
+			if (conditionToken == Actor.InvalidConditionToken)
+				conditionToken = self.GrantCondition(Info.Condition);
 		}
 
 		protected override void TraitDisabled(Actor self)
 		{
-			if (Info.GrantPermanently || conditionToken == ConditionManager.InvalidConditionToken)
+			if (Info.GrantPermanently || conditionToken == Actor.InvalidConditionToken)
 				return;
 
-			conditionToken = conditionManager.RevokeCondition(self, conditionToken);
+			conditionToken = self.RevokeCondition(conditionToken);
 		}
 	}
 }

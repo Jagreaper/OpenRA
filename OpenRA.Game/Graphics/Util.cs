@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -20,15 +20,18 @@ namespace OpenRA.Graphics
 		// yes, our channel order is nuts.
 		static readonly int[] ChannelMasks = { 2, 1, 0, 3 };
 
-		public static void FastCreateQuad(Vertex[] vertices, float3 o, Sprite r, int2 samplers, float paletteTextureIndex, int nv, float3 size)
+		public static void FastCreateQuad(Vertex[] vertices, float3 o, Sprite r, int2 samplers, float paletteTextureIndex, int nv, float3 size, float3 tint)
 		{
 			var b = new float3(o.X + size.X, o.Y, o.Z);
 			var c = new float3(o.X + size.X, o.Y + size.Y, o.Z + size.Z);
 			var d = new float3(o.X, o.Y + size.Y, o.Z + size.Z);
-			FastCreateQuad(vertices, o, b, c, d, r, samplers, paletteTextureIndex, nv);
+			FastCreateQuad(vertices, o, b, c, d, r, samplers, paletteTextureIndex, tint, nv);
 		}
 
-		public static void FastCreateQuad(Vertex[] vertices, float3 a, float3 b, float3 c, float3 d, Sprite r, int2 samplers, float paletteTextureIndex, int nv)
+		public static void FastCreateQuad(Vertex[] vertices,
+			float3 a, float3 b, float3 c, float3 d,
+			Sprite r, int2 samplers, float paletteTextureIndex,
+			float3 tint, int nv)
 		{
 			float sl = 0;
 			float st = 0;
@@ -51,33 +54,66 @@ namespace OpenRA.Graphics
 			}
 
 			var fAttribC = (float)attribC;
-			vertices[nv] = new Vertex(a, r.Left, r.Top, sl, st, paletteTextureIndex, fAttribC);
-			vertices[nv + 1] = new Vertex(b, r.Right, r.Top, sr, st, paletteTextureIndex, fAttribC);
-			vertices[nv + 2] = new Vertex(c, r.Right, r.Bottom, sr, sb, paletteTextureIndex, fAttribC);
-			vertices[nv + 3] = new Vertex(c, r.Right, r.Bottom, sr, sb, paletteTextureIndex, fAttribC);
-			vertices[nv + 4] = new Vertex(d, r.Left, r.Bottom, sl, sb, paletteTextureIndex, fAttribC);
-			vertices[nv + 5] = new Vertex(a, r.Left, r.Top, sl, st, paletteTextureIndex, fAttribC);
+			vertices[nv] = new Vertex(a, r.Left, r.Top, sl, st, paletteTextureIndex, fAttribC, tint);
+			vertices[nv + 1] = new Vertex(b, r.Right, r.Top, sr, st, paletteTextureIndex, fAttribC, tint);
+			vertices[nv + 2] = new Vertex(c, r.Right, r.Bottom, sr, sb, paletteTextureIndex, fAttribC, tint);
+			vertices[nv + 3] = new Vertex(c, r.Right, r.Bottom, sr, sb, paletteTextureIndex, fAttribC, tint);
+			vertices[nv + 4] = new Vertex(d, r.Left, r.Bottom, sl, sb, paletteTextureIndex, fAttribC, tint);
+			vertices[nv + 5] = new Vertex(a, r.Left, r.Top, sl, st, paletteTextureIndex, fAttribC, tint);
 		}
 
 		public static void FastCopyIntoChannel(Sprite dest, byte[] src)
 		{
-			var data = dest.Sheet.GetData();
-			var srcStride = dest.Bounds.Width;
-			var destStride = dest.Sheet.Size.Width * 4;
-			var destOffset = destStride * dest.Bounds.Top + dest.Bounds.Left * 4 + ChannelMasks[(int)dest.Channel];
-			var destSkip = destStride - 4 * srcStride;
+			var destData = dest.Sheet.GetData();
+			var width = dest.Bounds.Width;
 			var height = dest.Bounds.Height;
 
-			var srcOffset = 0;
-			for (var j = 0; j < height; j++)
+			if (dest.Channel == TextureChannel.RGBA)
 			{
-				for (var i = 0; i < srcStride; i++, srcOffset++)
+				var destStride = dest.Sheet.Size.Width;
+				unsafe
 				{
-					data[destOffset] = src[srcOffset];
-					destOffset += 4;
-				}
+					// Cast the data to an int array so we can copy the src data directly
+					fixed (byte* bd = &destData[0])
+					{
+						var data = (int*)bd;
+						var x = dest.Bounds.Left;
+						var y = dest.Bounds.Top;
 
-				destOffset += destSkip;
+						var k = 0;
+						for (var j = 0; j < height; j++)
+						{
+							for (var i = 0; i < width; i++)
+							{
+								var r = src[k++];
+								var g = src[k++];
+								var b = src[k++];
+								var a = src[k++];
+								var cc = Color.FromArgb(a, r, g, b);
+
+								data[(y + j) * destStride + x + i] = PremultiplyAlpha(cc).ToArgb();
+							}
+						}
+					}
+				}
+			}
+			else
+			{
+				var destStride = dest.Sheet.Size.Width * 4;
+				var destOffset = destStride * dest.Bounds.Top + dest.Bounds.Left * 4 + ChannelMasks[(int)dest.Channel];
+				var destSkip = destStride - 4 * width;
+
+				var srcOffset = 0;
+				for (var j = 0; j < height; j++)
+				{
+					for (var i = 0; i < width; i++, srcOffset++)
+					{
+						destData[destOffset] = src[srcOffset];
+						destOffset += 4;
+					}
+
+					destOffset += destSkip;
+				}
 			}
 		}
 

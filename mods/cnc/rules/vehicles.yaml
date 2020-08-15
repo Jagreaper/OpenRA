@@ -1,6 +1,6 @@
 MCV:
 	Inherits: ^Vehicle
-	Inherits@SELECTION_MODE: ^LowPrioritySelectionMode
+	Inherits@selection: ^SelectableSupportUnit
 	Valued:
 		Cost: 3500
 	Tooltip:
@@ -13,7 +13,6 @@ MCV:
 		BuildDurationModifier: 40
 		Description: Deploys into another Construction Yard.\n  Unarmed
 	Selectable:
-		Priority: 4
 		DecorationBounds: 36,36
 	Mobile:
 		Speed: 71
@@ -29,7 +28,7 @@ MCV:
 	Transforms:
 		IntoActor: fact
 		Offset: -1,-1
-		Facing: 108
+		Facing: 432
 		TransformSounds: constru2.aud, hvydoor1.aud
 		NoTransformNotification: BuildingCannotPlaceAudio
 	MustBeDestroyed:
@@ -39,12 +38,11 @@ MCV:
 		Actor: MCV.Husk
 		OwnerType: InternalName
 		EffectiveOwnerFromOwner: true
-	SelectionDecorations:
 
 HARV:
 	Inherits: ^Tank
 	Inherits@CLOAK: ^AcceptsCloakCrate
-	Inherits@SELECTION_MODE: ^LowPrioritySelectionMode
+	Inherits@selection: ^SelectableEconomicUnit
 	Valued:
 		Cost: 1000
 	Tooltip:
@@ -58,16 +56,15 @@ HARV:
 		BuildDurationModifier: 40
 		Description: Collects Tiberium for processing.\n  Unarmed
 	Selectable:
-		Priority: 7
 		DecorationBounds: 36,36
 	Harvester:
 		Resources: Tiberium, BlueTiberium
-		PipCount: 7
 		Capacity: 20
 		BaleLoadDelay: 12
 		BaleUnloadDelay: 6
 		SearchFromProcRadius: 15
 		SearchFromHarvesterRadius: 8
+		HarvestFacings: 8
 		EmptyCondition: no-tiberium
 	Mobile:
 		Speed: 85
@@ -88,13 +85,21 @@ HARV:
 	Explodes:
 		RequiresCondition: !no-tiberium
 		Weapon: TiberiumExplosion
-	SelectionDecorations:
+	WithHarvesterPipsDecoration:
+		Position: BottomLeft
+		Margin: 4, 3
+		RequiresSelection: true
+		PipCount: 7
+		ResourceSequences:
+			Tiberium: pip-green
+			BlueTiberium: pip-blue
 
 APC:
 	Inherits: ^Tank
 	Inherits@EXPERIENCE: ^GainsExperience
 	Inherits@CLOAK: ^AcceptsCloakCrate
 	Inherits@AUTOTARGET: ^AutoTargetAllAssaultMove
+	Inherits@TRANSPORT: ^Transport
 	Valued:
 		Cost: 600
 	Tooltip:
@@ -109,7 +114,7 @@ APC:
 		BuildDurationModifier: 40
 		Description: Armed infantry transport.\nCan attack Aircraft.\n  Strong vs Vehicles\n  Weak vs Infantry
 	Mobile:
-		TurnSpeed: 5
+		TurnSpeed: 20
 		Speed: 132
 		PauseOnCondition: notmobile
 	Health:
@@ -121,27 +126,40 @@ APC:
 	RevealsShroud:
 		Range: 6c0
 	Turreted:
-		TurnSpeed: 10
+		TurnSpeed: 40
 	Armament@PRIMARY:
 		Weapon: APCGun
-		Recoil: 96
+		Recoil: 48
 		RecoilRecovery: 18
-		LocalOffset: 85,85,299, 85,-85,299
+		LocalOffset: 255,100,189, 255,-100,189
 		MuzzleSequence: muzzle
+		PauseOnCondition: reload-air
+		ReloadingCondition: reload-ground
 	Armament@SECONDARY:
 		Name: secondary
 		Weapon: APCGun.AA
-		Recoil: 96
+		Recoil: 48
 		RecoilRecovery: 18
-		LocalOffset: 85,85,299, 85,-85,299
-		MuzzleSequence: muzzle
+		LocalOffset: 175,100,299, 175,-100,299
+		MuzzleSequence: muzzle-air
+		PauseOnCondition: reload-ground
+		ReloadingCondition: reload-air
+	GrantConditionOnAttack:
+		Condition: attack-air
+		ArmamentNames: secondary
+		RevokeDelay: 18
+		RevokeOnNewTarget: False
+		RevokeAll: True
 	AttackTurreted:
 	WithMuzzleOverlay:
 	WithSpriteTurret:
+		RequiresCondition: !attack-air
+	WithSpriteTurret@AIR:
+		Sequence: turret-air
+		RequiresCondition: attack-air
 	Cargo:
 		Types: Infantry
 		MaxWeight: 5
-		PipCount: 5
 		LoadingCondition: notmobile
 	SpawnActorOnDeath:
 		Actor: APC.Husk
@@ -165,7 +183,7 @@ ARTY:
 		Queue: Vehicle.Nod
 		Description: Long-range artillery.\n  Strong vs Infantry, Vehicles and Buildings
 	Mobile:
-		TurnSpeed: 4
+		TurnSpeed: 16
 		Speed: 85
 	Health:
 		HP: 7500
@@ -211,7 +229,7 @@ FTNK:
 		Queue: Vehicle.Nod
 		Description: Heavily armored flame-throwing vehicle.\n  Strong vs Infantry, Buildings and Vehicles\n  Weak vs Tanks
 	Mobile:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Speed: 99
 	Health:
 		HP: 27000
@@ -252,7 +270,7 @@ BGGY:
 		Queue: Vehicle.Nod
 		Description: Fast scout and anti-infantry vehicle.\n  Strong vs Infantry\n  Weak vs Tanks
 	Mobile:
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Speed: 170
 	Health:
 		HP: 12000
@@ -263,7 +281,7 @@ BGGY:
 	RevealsShroud:
 		Range: 8c0
 	Turreted:
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Offset: -43,0,128
 	Armament:
 		Weapon: MachineGun
@@ -294,7 +312,7 @@ BIKE:
 		Queue: Vehicle.Nod
 		Description: Fast scout vehicle, armed with\nrockets.\nCan attack Aircraft.\n  Strong vs Vehicles, Tanks\n  Weak vs Infantry
 	Mobile:
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Speed: 213
 		Locomotor: bike
 	Health:
@@ -332,7 +350,7 @@ JEEP:
 		Queue: Vehicle.GDI
 		Description: Fast scout and anti-infantry vehicle.\n  Strong vs Infantry\n  Weak vs Tanks
 	Mobile:
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Speed: 156
 	Health:
 		HP: 16000
@@ -343,7 +361,7 @@ JEEP:
 	RevealsShroud:
 		Range: 8c0
 	Turreted:
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Offset: -85,0,128
 	Armament:
 		Weapon: MachineGunH
@@ -363,7 +381,7 @@ LTNK:
 	Inherits@CLOAK: ^AcceptsCloakCrate
 	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
-		Cost: 650
+		Cost: 750
 	Tooltip:
 		Name: Light Tank
 	UpdatesPlayerStatistics:
@@ -372,11 +390,9 @@ LTNK:
 		BuildPaletteOrder: 40
 		Prerequisites: anyhq, ~techlevel.medium
 		Queue: Vehicle.Nod
-		BuildDuration: 1020
-		BuildDurationModifier: 40
 		Description: Fast, light tank.\n  Strong vs Vehicles, Tanks\n  Weak vs Infantry
 	Mobile:
-		TurnSpeed: 7
+		TurnSpeed: 28
 		Speed: 110
 	Health:
 		HP: 34000
@@ -387,7 +403,7 @@ LTNK:
 	RevealsShroud:
 		Range: 6c0
 	Turreted:
-		TurnSpeed: 7
+		TurnSpeed: 28
 	Armament:
 		Weapon: 70mm
 		Recoil: 85
@@ -408,7 +424,7 @@ MTNK:
 	Inherits@CLOAK: ^AcceptsCloakCrate
 	Inherits@AUTOTARGET: ^AutoTargetGroundAssaultMove
 	Valued:
-		Cost: 800
+		Cost: 900
 	Tooltip:
 		Name: Medium Tank
 	UpdatesPlayerStatistics:
@@ -429,7 +445,7 @@ MTNK:
 	RevealsShroud:
 		Range: 6c0
 	Turreted:
-		TurnSpeed: 5
+		TurnSpeed: 20
 	Armament:
 		Weapon: 120mm
 		Recoil: 128
@@ -443,7 +459,6 @@ MTNK:
 		Actor: MTNK.Husk
 		OwnerType: InternalName
 		EffectiveOwnerFromOwner: true
-	SelectionDecorations:
 	Selectable:
 		DecorationBounds: 28,28
 
@@ -453,7 +468,7 @@ HTNK:
 	Inherits@CLOAK: ^AcceptsCloakCrate
 	Inherits@AUTOTARGET: ^AutoTargetAllAssaultMove
 	Valued:
-		Cost: 1500
+		Cost: 1800
 	Tooltip:
 		Name: Mammoth Tank
 	UpdatesPlayerStatistics:
@@ -466,7 +481,7 @@ HTNK:
 	Mobile:
 		Locomotor: heavytracked
 		Speed: 56
-		TurnSpeed: 3
+		TurnSpeed: 12
 	Health:
 		HP: 87000
 	Repairable:
@@ -477,7 +492,7 @@ HTNK:
 		Range: 6c0
 	WithSpriteTurret:
 	Turreted:
-		TurnSpeed: 3
+		TurnSpeed: 12
 	Armament@PRIMARY:
 		Weapon: 120mmDual
 		LocalOffset: 900,180,340, 900,-180,340
@@ -493,16 +508,15 @@ HTNK:
 		MuzzleSequence: muzzle
 	AttackTurreted:
 	WithMuzzleOverlay:
-	SelfHealing:
+	ChangesHealth:
 		Step: 500
 		Delay: 10
-		HealIfBelow: 50
+		StartIfBelow: 50
 		DamageCooldown: 200
 	SpawnActorOnDeath:
 		Actor: HTNK.Husk
 		OwnerType: InternalName
 		EffectiveOwnerFromOwner: true
-	SelectionDecorations:
 	Selectable:
 		DecorationBounds: 34,34,0,-3
 
@@ -524,7 +538,7 @@ MSAM:
 		Description: Long range rocket artillery.\n  Strong vs all Ground units.
 	Mobile:
 		Speed: 85
-		TurnSpeed: 4
+		TurnSpeed: 16
 	Health:
 		HP: 12000
 	Repairable:
@@ -534,7 +548,7 @@ MSAM:
 	RevealsShroud:
 		Range: 5c0
 	Turreted:
-		TurnSpeed: 255
+		TurnSpeed: 512
 		Offset: -256,0,128
 	Armament@PRIMARY:
 		Weapon: 227mm
@@ -572,7 +586,7 @@ MLRS:
 		Description: Powerful anti-air unit.\nCannot attack Ground units.
 	Mobile:
 		Speed: 99
-		TurnSpeed: 7
+		TurnSpeed: 28
 	Health:
 		HP: 18000
 	Repairable:
@@ -582,7 +596,7 @@ MLRS:
 	RevealsShroud:
 		Range: 8c0
 	Turreted:
-		TurnSpeed: 8
+		TurnSpeed: 32
 		Offset: -128,0,128
 		RealignDelay: 0
 	Armament:
@@ -590,7 +604,6 @@ MLRS:
 		LocalOffset: 0,-171,0, 0,171,0
 	AmmoPool:
 		Ammo: 2
-		PipCount: 0
 		AmmoCondition: ammo
 	AttackTurreted:
 	WithSpriteTurret:
@@ -629,7 +642,7 @@ STNK:
 		Description: Long-range missile tank that can cloak.\nCan attack Aircraft.\nHas weak armor. Can be spotted by infantry and defense structures.\n  Strong vs Vehicles, Tanks\n  Weak vs Infantry.
 	Mobile:
 		Locomotor: heavywheeled
-		TurnSpeed: 10
+		TurnSpeed: 40
 		Speed: 142
 	Health:
 		HP: 15000
@@ -683,7 +696,7 @@ MHQ:
 
 TRUCK:
 	Inherits: ^Vehicle
-	Inherits@SELECTION_MODE: ^LowPrioritySelectionMode
+	Inherits@selection: ^SelectableSupportUnit
 	Buildable:
 		Queue: Vehicle.GDI, Vehicle.Nod
 		BuildPaletteOrder: 35
@@ -693,8 +706,6 @@ TRUCK:
 		Cost: 500
 	Tooltip:
 		Name: Supply Truck
-	Selectable:
-		Priority: 6
 	Health:
 		HP: 11000
 	Armor:

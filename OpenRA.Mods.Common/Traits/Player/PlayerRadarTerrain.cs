@@ -1,6 +1,6 @@
-﻿#region Copyright & License Information
+#region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -10,16 +10,15 @@
 #endregion
 
 using System;
-using System.Collections.Generic;
 using OpenRA.Graphics;
 using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
-	public class PlayerRadarTerrainInfo : ITraitInfo, Requires<ShroudInfo>
+	public class PlayerRadarTerrainInfo : TraitInfo, Requires<ShroudInfo>
 	{
-		public object Create(ActorInitializer init)
+		public override object Create(ActorInitializer init)
 		{
 			return new PlayerRadarTerrain(init.Self);
 		}
@@ -30,8 +29,7 @@ namespace OpenRA.Mods.Common.Traits
 		public bool IsInitialized { get; private set; }
 
 		readonly World world;
-		CellLayer<Pair<int, int>> terrainColor;
-		readonly HashSet<MPos> dirtyTerrainCells = new HashSet<MPos>();
+		CellLayer<(int, int)> terrainColor;
 		readonly Shroud shroud;
 
 		public event Action<MPos> CellTerrainColorChanged = null;
@@ -40,33 +38,22 @@ namespace OpenRA.Mods.Common.Traits
 		{
 			world = self.World;
 			shroud = self.Trait<Shroud>();
-			shroud.CellsChanged += OnShroudCellsChanged;
+			shroud.OnShroudChanged += UpdateShroudCell;
 		}
 
-		void OnShroudCellsChanged(IEnumerable<PPos> puvs)
+		void UpdateShroudCell(PPos puv)
 		{
-			foreach (var puv in puvs)
-			{
-				foreach (var uv in world.Map.Unproject(puv))
-				{
-					if (dirtyTerrainCells.Contains(uv))
-					{
-						UpdateTerrainCellColor(uv);
-						dirtyTerrainCells.Remove(uv);
-					}
-				}
-			}
+			var uvs = world.Map.Unproject(puv);
+			foreach (var uv in uvs)
+				UpdateTerrainCell(uv);
 		}
 
-		void UpdateTerrainCell(CPos cell)
+		void UpdateTerrainCell(MPos uv)
 		{
-			var uv = cell.ToMPos(world.Map);
 			if (!world.Map.CustomTerrain.Contains(uv))
 				return;
 
-			if (!shroud.IsVisible(uv))
-				dirtyTerrainCells.Add(uv);
-			else
+			if (shroud.IsVisible(uv))
 				UpdateTerrainCellColor(uv);
 		}
 
@@ -80,7 +67,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
-			terrainColor = new CellLayer<Pair<int, int>>(w.Map);
+			terrainColor = new CellLayer<(int, int)>(w.Map);
 
 			w.AddFrameEndTask(_ =>
 			{
@@ -88,32 +75,29 @@ namespace OpenRA.Mods.Common.Traits
 				foreach (var uv in world.Map.AllCells.MapCoords)
 					UpdateTerrainCellColor(uv);
 
-				world.Map.Tiles.CellEntryChanged += UpdateTerrainCell;
-				world.Map.CustomTerrain.CellEntryChanged += UpdateTerrainCell;
+				world.Map.Tiles.CellEntryChanged += cell => UpdateTerrainCell(cell.ToMPos(world.Map));
+				world.Map.CustomTerrain.CellEntryChanged += cell => UpdateTerrainCell(cell.ToMPos(world.Map));
 
 				IsInitialized = true;
 			});
 		}
 
-		public Pair<int, int> this[MPos uv]
+		public (int Left, int Right) this[MPos uv]
 		{
 			get { return terrainColor[uv]; }
 		}
 
-		public static Pair<int, int> GetColor(Map map, MPos uv)
+		public static (int Left, int Right) GetColor(Map map, MPos uv)
 		{
 			var custom = map.CustomTerrain[uv];
-			int leftColor, rightColor;
-			if (custom == byte.MaxValue)
+			if (custom != byte.MaxValue)
 			{
-				var type = map.Rules.TileSet.GetTileInfo(map.Tiles[uv]);
-				leftColor = type != null ? type.LeftColor.ToArgb() : Color.Black.ToArgb();
-				rightColor = type != null ? type.RightColor.ToArgb() : Color.Black.ToArgb();
+				var c = map.Rules.TileSet[custom].Color.ToArgb();
+				return (c, c);
 			}
-			else
-				leftColor = rightColor = map.Rules.TileSet[custom].Color.ToArgb();
 
-			return Pair.New(leftColor, rightColor);
+			var tc = map.GetTerrainColorPair(uv);
+			return (tc.Left.ToArgb(), tc.Right.ToArgb());
 		}
 	}
 }

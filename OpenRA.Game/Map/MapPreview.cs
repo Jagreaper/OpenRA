@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -89,7 +89,7 @@ namespace OpenRA
 			public bool DefinesUnsafeCustomRules { get; private set; }
 			public bool RulesLoaded { get; private set; }
 
-			public void SetRulesetGenerator(ModData modData, Func<Pair<Ruleset, bool>> generator)
+			public void SetRulesetGenerator(ModData modData, Func<(Ruleset Ruleset, bool DefinesUnsafeCustomRules)> generator)
 			{
 				InvalidCustomRules = false;
 				RulesLoaded = false;
@@ -106,8 +106,8 @@ namespace OpenRA
 					try
 					{
 						var ret = generator();
-						DefinesUnsafeCustomRules = ret.Second;
-						return ret.First;
+						DefinesUnsafeCustomRules = ret.DefinesUnsafeCustomRules;
+						return ret.Ruleset;
 					}
 					catch (Exception e)
 					{
@@ -276,7 +276,7 @@ namespace OpenRA
 					foreach (var kv in actorDefinitions.Nodes.Where(d => d.Value.Value == "mpspawn"))
 					{
 						var s = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-						spawns.Add(s.InitDict.Get<LocationInit>().Value(null));
+						spawns.Add(s.Get<LocationInit>().Value);
 					}
 
 					newData.SpawnPoints = spawns.ToArray();
@@ -318,7 +318,7 @@ namespace OpenRA
 					voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions, modelSequenceDefinitions);
 				var flagged = Ruleset.DefinesUnsafeCustomRules(modData, this, ruleDefinitions,
 					weaponDefinitions, voiceDefinitions, notificationDefinitions, sequenceDefinitions);
-				return Pair.New(rules, flagged);
+				return (rules, flagged);
 			});
 
 			if (p.Contains("map.png"))
@@ -402,7 +402,7 @@ namespace OpenRA
 							voiceDefinitions, notificationDefinitions, musicDefinitions, sequenceDefinitions, modelSequenceDefinitions);
 						var flagged = Ruleset.DefinesUnsafeCustomRules(modData, this, ruleDefinitions,
 							weaponDefinitions, voiceDefinitions, notificationDefinitions, sequenceDefinitions);
-						return Pair.New(rules, flagged);
+						return (rules, flagged);
 					});
 				}
 				catch (Exception e)

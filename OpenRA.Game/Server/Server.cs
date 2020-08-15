@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -18,7 +18,6 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
-using OpenRA.Graphics;
 using OpenRA.Network;
 using OpenRA.Primitives;
 using OpenRA.Support;
@@ -32,14 +31,19 @@ namespace OpenRA.Server
 		ShuttingDown = 3
 	}
 
+	public enum ServerType
+	{
+		Local = 0,
+		Multiplayer = 1,
+		Dedicated = 2
+	}
+
 	public class Server
 	{
 		public readonly string TwoHumansRequiredText = "This server requires at least two human players to start a match.";
 
-		public readonly IPAddress Ip;
-		public readonly int Port;
 		public readonly MersenneTwister Random = new MersenneTwister();
-		public readonly bool Dedicated;
+		public readonly ServerType Type;
 
 		// Valid player connections
 		public List<Connection> Conns = new List<Connection>();
@@ -57,7 +61,7 @@ namespace OpenRA.Server
 		public GameSave GameSave = null;
 
 		readonly int randomSeed;
-		readonly TcpListener listener;
+		readonly List<TcpListener> listeners = new List<TcpListener>();
 		readonly TypeDictionary serverTraits = new TypeDictionary();
 		readonly PlayerDatabase playerDatabase;
 
@@ -122,16 +126,44 @@ namespace OpenRA.Server
 				t.GameEnded(this);
 		}
 
-		public Server(IPEndPoint endpoint, ServerSettings settings, ModData modData, bool dedicated)
+		public Server(List<IPEndPoint> endpoints, ServerSettings settings, ModData modData, ServerType type)
 		{
 			Log.AddChannel("server", "server.log", true);
 
-			listener = new TcpListener(endpoint);
-			listener.Start();
-			var localEndpoint = (IPEndPoint)listener.LocalEndpoint;
-			Ip = localEndpoint.Address;
-			Port = localEndpoint.Port;
-			Dedicated = dedicated;
+			SocketException lastException = null;
+			var checkReadServer = new List<Socket>();
+			foreach (var endpoint in endpoints)
+			{
+				var listener = new TcpListener(endpoint);
+				try
+				{
+					try
+					{
+						listener.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, 1);
+					}
+					catch (Exception ex)
+					{
+						if (ex is SocketException || ex is ArgumentException)
+							Log.Write("server", "Failed to set socket option on {0}: {1}", endpoint.ToString(), ex.Message);
+						else
+							throw;
+					}
+
+					listener.Start();
+					listeners.Add(listener);
+					checkReadServer.Add(listener.Server);
+				}
+				catch (SocketException ex)
+				{
+					lastException = ex;
+					Log.Write("server", "Failed to listen on {0}: {1}", endpoint.ToString(), ex.Message);
+				}
+			}
+
+			if (listeners.Count == 0)
+				throw lastException;
+
+			Type = type;
 			Settings = settings;
 
 			Settings.Name = OpenRA.Settings.SanitizedServerName(Settings.Name);
@@ -141,6 +173,9 @@ namespace OpenRA.Server
 			playerDatabase = modData.Manifest.Get<PlayerDatabase>();
 
 			randomSeed = (int)DateTime.Now.ToBinary();
+
+			if (type != ServerType.Local && settings.EnableGeoIP)
+				GeoIP.Initialize();
 
 			if (UPnP.Status == UPnPStatus.Enabled)
 				UPnP.ForwardPort(Settings.ListenPort, Settings.ListenPort).Wait();
@@ -157,10 +192,10 @@ namespace OpenRA.Server
 					RandomSeed = randomSeed,
 					Map = settings.Map,
 					ServerName = settings.Name,
-					EnableSingleplayer = settings.EnableSingleplayer || !dedicated,
+					EnableSingleplayer = settings.EnableSingleplayer || Type != ServerType.Dedicated,
 					EnableSyncReports = settings.EnableSyncReports,
 					GameUid = Guid.NewGuid().ToString(),
-					Dedicated = dedicated
+					Dedicated = Type == ServerType.Dedicated
 				}
 			};
 
@@ -176,7 +211,7 @@ namespace OpenRA.Server
 				{
 					var checkRead = new List<Socket>();
 					if (State == ServerState.WaitingPlayers)
-						checkRead.Add(listener.Server);
+						checkRead.AddRange(checkReadServer);
 
 					checkRead.AddRange(Conns.Select(c => c.Socket));
 					checkRead.AddRange(PreConns.Select(c => c.Socket));
@@ -195,9 +230,10 @@ namespace OpenRA.Server
 
 					foreach (var s in checkRead)
 					{
-						if (s == listener.Server)
+						var serverIndex = checkReadServer.IndexOf(s);
+						if (serverIndex >= 0)
 						{
-							AcceptConnection();
+							AcceptConnection(listeners[serverIndex]);
 							continue;
 						}
 
@@ -216,7 +252,7 @@ namespace OpenRA.Server
 					delayedActions.PerformActions(0);
 
 					// PERF: Dedicated servers need to drain the action queue to remove references blocking the GC from cleaning up disposed objects.
-					if (dedicated)
+					if (Type == ServerType.Dedicated)
 						Game.PerformDelayedActions();
 
 					foreach (var t in serverTraits.WithInterface<ITick>())
@@ -236,9 +272,14 @@ namespace OpenRA.Server
 
 				PreConns.Clear();
 				Conns.Clear();
-				try { listener.Stop(); }
-				catch { }
-			}) { IsBackground = true }.Start();
+
+				foreach (var listener in listeners)
+				{
+					try { listener.Stop(); }
+					catch { }
+				}
+			})
+			{ IsBackground = true }.Start();
 		}
 
 		int nextPlayerIndex;
@@ -247,7 +288,7 @@ namespace OpenRA.Server
 			return nextPlayerIndex++;
 		}
 
-		void AcceptConnection()
+		void AcceptConnection(TcpListener listener)
 		{
 			Socket newSocket;
 
@@ -334,10 +375,13 @@ namespace OpenRA.Server
 					return;
 				}
 
+				var ipAddress = ((IPEndPoint)newConn.Socket.RemoteEndPoint).Address;
 				var client = new Session.Client
 				{
 					Name = OpenRA.Settings.SanitizedPlayerName(handshake.Client.Name),
-					IpAddress = ((IPEndPoint)newConn.Socket.RemoteEndPoint).Address.ToString(),
+					IPAddress = ipAddress.ToString(),
+					AnonymizedIPAddress = Type != ServerType.Local && Settings.ShareAnonymizedIPs ? Session.AnonymizeIP(ipAddress) : null,
+					Location = GeoIP.LookupCountry(ipAddress),
 					Index = newConn.PlayerIndex,
 					PreferredColor = handshake.Client.PreferredColor,
 					Color = handshake.Client.Color,
@@ -379,10 +423,10 @@ namespace OpenRA.Server
 
 				// Check if IP is banned
 				var bans = Settings.Ban.Union(TempBans);
-				if (bans.Contains(client.IpAddress))
+				if (bans.Contains(client.IPAddress))
 				{
 					Log.Write("server", "Rejected connection from {0}; Banned.", newConn.Socket.RemoteEndPoint);
-					SendOrderTo(newConn, "ServerError", "You have been {0} from the server".F(Settings.Ban.Contains(client.IpAddress) ? "banned" : "temporarily banned"));
+					SendOrderTo(newConn, "ServerError", "You have been {0} from the server".F(Settings.Ban.Contains(client.IPAddress) ? "banned" : "temporarily banned"));
 					DropClient(newConn);
 					return;
 				}
@@ -434,7 +478,7 @@ namespace OpenRA.Server
 					// Send initial ping
 					SendOrderTo(newConn, "Ping", Game.RunTime.ToString(CultureInfo.InvariantCulture));
 
-					if (Dedicated)
+					if (Type == ServerType.Dedicated)
 					{
 						var motdFile = Platform.ResolvePath(Platform.SupportDirPrefix, "motd.txt");
 						if (!File.Exists(motdFile))
@@ -454,7 +498,13 @@ namespace OpenRA.Server
 						SendOrderTo(newConn, "Message", "Bots have been disabled on this map.");
 				};
 
-				if (!string.IsNullOrEmpty(handshake.Fingerprint) && !string.IsNullOrEmpty(handshake.AuthSignature))
+				if (Type == ServerType.Local)
+				{
+					// Local servers can only be joined by the local client, so we can trust their identity without validation
+					client.Fingerprint = handshake.Fingerprint;
+					completeConnection();
+				}
+				else if (!string.IsNullOrEmpty(handshake.Fingerprint) && !string.IsNullOrEmpty(handshake.AuthSignature))
 				{
 					waitingForAuthenticationCallback++;
 
@@ -480,10 +530,16 @@ namespace OpenRA.Server
 											profile.ProfileName, profile.ProfileID);
 									}
 									else if (profile.KeyRevoked)
+									{
+										profile = null;
 										Log.Write("server", "{0} failed to authenticate as {1} (key revoked)", newConn.Socket.RemoteEndPoint, handshake.Fingerprint);
+									}
 									else
+									{
+										profile = null;
 										Log.Write("server", "{0} failed to authenticate as {1} (signature verification failed)",
 											newConn.Socket.RemoteEndPoint, handshake.Fingerprint);
+									}
 								}
 								else
 									Log.Write("server", "{0} failed to authenticate as {1} (invalid server response: `{2}` is not `Player`)",
@@ -502,9 +558,9 @@ namespace OpenRA.Server
 
 						delayedActions.Add(() =>
 						{
-							var notAuthenticated = Dedicated && profile == null && (Settings.RequireAuthentication || Settings.ProfileIDWhitelist.Any());
-							var blacklisted = Dedicated && profile != null && Settings.ProfileIDBlacklist.Contains(profile.ProfileID);
-							var notWhitelisted = Dedicated && Settings.ProfileIDWhitelist.Any() &&
+							var notAuthenticated = Type == ServerType.Dedicated && profile == null && (Settings.RequireAuthentication || Settings.ProfileIDWhitelist.Any());
+							var blacklisted = Type == ServerType.Dedicated && profile != null && Settings.ProfileIDBlacklist.Contains(profile.ProfileID);
+							var notWhitelisted = Type == ServerType.Dedicated && Settings.ProfileIDWhitelist.Any() &&
 								(profile == null || !Settings.ProfileIDWhitelist.Contains(profile.ProfileID));
 
 							if (notAuthenticated)
@@ -534,7 +590,7 @@ namespace OpenRA.Server
 				}
 				else
 				{
-					if (Dedicated && (Settings.RequireAuthentication || Settings.ProfileIDWhitelist.Any()))
+					if (Type == ServerType.Dedicated && (Settings.RequireAuthentication || Settings.ProfileIDWhitelist.Any()))
 					{
 						Log.Write("server", "Rejected connection from {0}; Not authenticated.", newConn.Socket.RemoteEndPoint);
 						SendOrderTo(newConn, "ServerError", "Server requires players to have an OpenRA forum account");
@@ -616,7 +672,7 @@ namespace OpenRA.Server
 		{
 			DispatchOrdersToClients(conn, 0, Order.FromTargetString("Message", text, true).Serialize());
 
-			if (Dedicated)
+			if (Type == ServerType.Dedicated)
 				Console.WriteLine("[{0}] {1}".F(DateTime.Now.ToString(Settings.TimestampFormat), text));
 		}
 
@@ -731,7 +787,7 @@ namespace OpenRA.Server
 
 				case "LoadGameSave":
 					{
-						if (Dedicated || State >= ServerState.GameStarted)
+						if (Type == ServerType.Dedicated || State >= ServerState.GameStarted)
 							break;
 
 						// Sanitize potentially malicious input
@@ -834,7 +890,7 @@ namespace OpenRA.Server
 
 				// Client was the server admin
 				// TODO: Reassign admin for game in progress via an order
-				if (Dedicated && dropClient.IsAdmin && State == ServerState.WaitingPlayers)
+				if (Type == ServerType.Dedicated && dropClient.IsAdmin && State == ServerState.WaitingPlayers)
 				{
 					// Remove any bots controlled by the admin
 					LobbyInfo.Clients.RemoveAll(c => c.Bot != null && c.BotControllerClientIndex == toDrop.PlayerIndex);
@@ -856,10 +912,10 @@ namespace OpenRA.Server
 					foreach (var t in serverTraits.WithInterface<INotifyServerEmpty>())
 						t.ServerEmpty(this);
 
-				if (Conns.Any() || Dedicated)
+				if (Conns.Any() || Type == ServerType.Dedicated)
 					SyncLobbyClients();
 
-				if (!Dedicated && dropClient.IsAdmin)
+				if (Type != ServerType.Dedicated && dropClient.IsAdmin)
 					Shutdown();
 			}
 
@@ -931,7 +987,8 @@ namespace OpenRA.Server
 
 		public void StartGame()
 		{
-			listener.Stop();
+			foreach (var listener in listeners)
+				listener.Stop();
 
 			Console.WriteLine("[{0}] Game started", DateTime.Now.ToString(Settings.TimestampFormat));
 
@@ -952,7 +1009,7 @@ namespace OpenRA.Server
 
 			// Enable game saves for singleplayer missions only
 			// TODO: Enable for multiplayer (non-dedicated servers only) once the lobby UI has been created
-			LobbyInfo.GlobalSettings.GameSavesEnabled = !Dedicated && LobbyInfo.NonBotClients.Count() == 1;
+			LobbyInfo.GlobalSettings.GameSavesEnabled = Type != ServerType.Dedicated && LobbyInfo.NonBotClients.Count() == 1;
 
 			SyncLobbyInfo();
 			State = ServerState.GameStarted;
@@ -992,6 +1049,23 @@ namespace OpenRA.Server
 						DispatchOrdersToClient(c, client, frame, data);
 				});
 			}
+		}
+
+		public ConnectionTarget GetEndpointForLocalConnection()
+		{
+			var endpoints = new List<DnsEndPoint>();
+			foreach (var listener in listeners)
+			{
+				var endpoint = (IPEndPoint)listener.LocalEndpoint;
+				if (IPAddress.IPv6Any.Equals(endpoint.Address))
+					endpoints.Add(new DnsEndPoint(IPAddress.IPv6Loopback.ToString(), endpoint.Port));
+				else if (IPAddress.Any.Equals(endpoint.Address))
+					endpoints.Add(new DnsEndPoint(IPAddress.Loopback.ToString(), endpoint.Port));
+				else
+					endpoints.Add(new DnsEndPoint(endpoint.Address.ToString(), endpoint.Port));
+			}
+
+			return new ConnectionTarget(endpoints);
 		}
 	}
 }

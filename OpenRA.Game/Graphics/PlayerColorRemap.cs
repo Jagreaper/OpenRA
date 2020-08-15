@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -47,8 +47,8 @@ namespace OpenRA.Graphics
 					remapRamp = ramp.Select(r => r - ramp[rampMaxIndex]);
 			}
 
-			remapColors = remapRamp.Select((x, i) => Pair.New(baseIndex + i, Exts.ColorLerp(x / (float)ramp.Length, c1, c2)))
-				.ToDictionary(u => u.First, u => u.Second);
+			remapColors = remapRamp.Select((x, i) => (baseIndex + i, Exts.ColorLerp(x / (float)ramp.Length, c1, c2)))
+				.ToDictionary(u => u.Item1, u => u.Item2);
 		}
 
 		public Color GetRemappedColor(Color original, int index)

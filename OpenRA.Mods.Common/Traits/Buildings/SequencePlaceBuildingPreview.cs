@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -25,7 +25,7 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Sequence name to use.")]
 		public readonly string Sequence = "idle";
 
-		[PaletteReference("SequencePaletteIsPlayerPalette")]
+		[PaletteReference(nameof(SequencePaletteIsPlayerPalette))]
 		[Desc("Custom palette name.")]
 		public readonly string SequencePalette = null;
 
@@ -61,15 +61,15 @@ namespace OpenRA.Mods.Common.Traits
 			: base(wr, ai, info, init)
 		{
 			this.info = info;
-			var owner = init.Get<OwnerInit>().Value(wr.World);
-			var faction = init.Get<FactionInit>().Value(wr.World);
+			var ownerName = init.Get<OwnerInit>().InternalName;
+			var faction = init.Get<FactionInit>().Value;
 
 			var rsi = ai.TraitInfo<RenderSpritesInfo>();
 
 			if (!string.IsNullOrEmpty(info.SequencePalette))
-				palette = wr.Palette(info.SequencePaletteIsPlayerPalette ? info.SequencePalette + owner.InternalName : info.SequencePalette);
+				palette = wr.Palette(info.SequencePaletteIsPlayerPalette ? info.SequencePalette + ownerName : info.SequencePalette);
 			else
-				palette = wr.Palette(rsi.Palette ?? rsi.PlayerPalette + owner.InternalName);
+				palette = wr.Palette(rsi.Palette ?? rsi.PlayerPalette + ownerName);
 
 			preview = new Animation(wr.World, rsi.GetImage(ai, wr.World.Map.Rules.Sequences, faction));
 			preview.PlayRepeating(info.Sequence);
@@ -82,9 +82,6 @@ namespace OpenRA.Mods.Common.Traits
 
 		protected override IEnumerable<IRenderable> RenderInner(WorldRenderer wr, CPos topLeft, Dictionary<CPos, PlaceBuildingCellType> footprint)
 		{
-			foreach (var r in RenderAnnotations(wr, topLeft))
-				yield return r;
-
 			if (info.FootprintUnderPreview != PlaceBuildingCellType.None)
 				foreach (var r in RenderFootprint(wr, topLeft, footprint, info.FootprintUnderPreview))
 					yield return r;

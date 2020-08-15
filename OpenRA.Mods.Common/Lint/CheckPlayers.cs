@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -13,8 +13,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Mods.Common.Traits;
-using OpenRA.Primitives;
-using OpenRA.Scripting;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Lint
@@ -46,6 +44,11 @@ namespace OpenRA.Mods.Common.Lint
 					if (player.Playable)
 						emitError("The player {0} owning the world can't be playable.".F(player.Name));
 				}
+				else if (map.Visibility == MapVisibility.MissionSelector && player.Playable && !player.LockFaction)
+				{
+					// Missions must lock the faction of the player to force the server to override the default Random faction
+					emitError("The player {0} must specify LockFaction: True.".F(player.Name));
+				}
 			}
 
 			if (!worldOwnerFound)
@@ -65,7 +68,7 @@ namespace OpenRA.Mods.Common.Lint
 				foreach (var kv in map.ActorDefinitions.Where(d => d.Value.Value == "mpspawn"))
 				{
 					var s = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-					spawns.Add(s.InitDict.Get<LocationInit>().Value(null));
+					spawns.Add(s.Get<LocationInit>().Value);
 				}
 
 				if (playerCount > spawns.Count)
@@ -83,12 +86,12 @@ namespace OpenRA.Mods.Common.Lint
 			foreach (var kv in map.ActorDefinitions)
 			{
 				var actorReference = new ActorReference(kv.Value.Value, kv.Value.ToDictionary());
-				var ownerInit = actorReference.InitDict.GetOrDefault<OwnerInit>();
+				var ownerInit = actorReference.GetOrDefault<OwnerInit>();
 				if (ownerInit == null)
 					emitError("Actor {0} is not owned by any player.".F(kv.Key));
 				else
 				{
-					var ownerName = ownerInit.PlayerName;
+					var ownerName = ownerInit.InternalName;
 					if (!playerNames.Contains(ownerName))
 						emitError("Actor {0} is owned by unknown player {1}.".F(kv.Key, ownerName));
 

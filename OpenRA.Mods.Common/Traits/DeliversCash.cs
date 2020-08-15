@@ -1,6 +1,6 @@
 #region Copyright & License Information
 /*
- * Copyright 2007-2019 The OpenRA Developers (see AUTHORS)
+ * Copyright 2007-2020 The OpenRA Developers (see AUTHORS)
  * This file is part of OpenRA, which is free software. It is made
  * available to you under the terms of the GNU General Public License
  * as published by the Free Software Foundation, either version 3 of
@@ -12,13 +12,12 @@
 using System.Collections.Generic;
 using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Orders;
-using OpenRA.Primitives;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common.Traits
 {
 	[Desc("Donate money to actors with the `AcceptsDeliveredCash` trait.")]
-	class DeliversCashInfo : ITraitInfo
+	class DeliversCashInfo : TraitInfo
 	{
 		[Desc("The amount of cash the owner receives.")]
 		public readonly int Payload = 500;
@@ -32,10 +31,13 @@ namespace OpenRA.Mods.Common.Traits
 		[Desc("Sound to play when delivering cash")]
 		public readonly string[] Sounds = { };
 
+		[Desc("Cursor to display when hovering over a valid actor to deliver cash to.")]
+		public readonly string Cursor = "enter";
+
 		[VoiceReference]
 		public readonly string Voice = "Action";
 
-		public object Create(ActorInitializer init) { return new DeliversCash(this); }
+		public override object Create(ActorInitializer init) { return new DeliversCash(this); }
 	}
 
 	class DeliversCash : IIssueOrder, IResolveOrder, IOrderVoice, INotifyCashTransfer
@@ -49,7 +51,7 @@ namespace OpenRA.Mods.Common.Traits
 
 		public IEnumerable<IOrderTargeter> Orders
 		{
-			get { yield return new DeliversCashOrderTargeter(); }
+			get { yield return new DeliversCashOrderTargeter(info); }
 		}
 
 		public Order IssueOrder(Actor self, IOrderTargeter order, Target target, bool queued)
@@ -87,8 +89,8 @@ namespace OpenRA.Mods.Common.Traits
 
 		public class DeliversCashOrderTargeter : UnitOrderTargeter
 		{
-			public DeliversCashOrderTargeter()
-				: base("DeliverCash", 5, "enter", false, true) { }
+			public DeliversCashOrderTargeter(DeliversCashInfo info)
+				: base("DeliverCash", 5, info.Cursor, false, true) { }
 
 			public override bool CanTargetActor(Actor self, Actor target, TargetModifiers modifiers, ref string cursor)
 			{
